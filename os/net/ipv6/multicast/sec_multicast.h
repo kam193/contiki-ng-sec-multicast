@@ -12,10 +12,10 @@
 #include "contiki.h"
 #include <stdint.h>
 
-// By default use ESMRF
+// By default use SMRF
 #ifndef SEC_MULTICAST_BASE_DRIVER
 #define RPL_WITH_MULTICAST     1
-#define SEC_MULTICAST_BASE_DRIVER esmrf_driver
+#define SEC_MULTICAST_BASE_DRIVER smrf_driver
 #endif
 
 const struct uip_mcast6_driver SEC_MULTICAST_BASE_DRIVER;
