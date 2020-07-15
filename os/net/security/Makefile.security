@@ -1,19 +1,24 @@
 # Build Contiki-NG with WolfSSL and WolfCrypt included
+# Additional required configuration is made in 
 
 # TODO: rename -> move one layer wolfssl more
-# TODO: add if check and also check if wolf was autoconfigured 
 
-WOLFSSL = $(CONTIKI)/os/net/security/wolfssl
+WOLFSSL_ROOT?=wolfssl
+WOLFSSL_MODULE?= $(CONTIKI)/os/net/security/$(WOLFSSL_ROOT)
 
-WOLFSSL_ROOT=wolfssl
-SOURCEDIRS+= $(WOLFSSL)
-CFLAGS+= -DWOLFSSL_CONTIKI -DWOLFSSL_USER_SETTINGS # -DUSE_WOLFSSL 
-CFLAGS+= -DWC_NO_HARDEN -DNO_DSA # without warning - check wtf
+WOLFCRYPT_PATH = $(WOLFSSL_ROOT)/wolfcrypt/src
+WOLFSSL_PATH = $(WOLFSSL_ROOT)/src
+WOLF_OBJECTDIR = $(OBJECTDIR)/$(WOLFSSL_ROOT)
 
-WOLFCRYPT_SRC = $(WOLFSSL_ROOT)/wolfcrypt/src
-WOLFSSL_SRC = $(WOLFSSL_ROOT)/src
+${info Building with wolfSSL - see license in $(WOLFSSL_MODULE)/LICENSING}
+ifeq (${wildcard $(WOLFSSL_MODULE)/wolfssl/options.h},)
+  ${error Could not find 'options.h' for wolfSSL. Did you initialize submodule and run './autogen.sh'?}
+endif
 
-WOLFCRYPT_FILES += 	aes.c \
+SOURCEDIRS+= $(WOLFSSL_MODULE)
+CFLAGS+= -DWOLFSSL_USER_SETTINGS
+
+WOLFCRYPT_FILES?=	aes.c \
 					asm.c  \
 					asn.c  \
 					arc4.c  \
@@ -69,7 +74,7 @@ WOLFCRYPT_FILES += 	aes.c \
 					wolfmath.c 
 
 
-WOLFSSL_FILES += internal.c \
+WOLFSSL_FILES?=	internal.c \
 				tls.c \
 				wolfio.c \
 				keys.c \
@@ -79,16 +84,14 @@ WOLFSSL_FILES += internal.c \
 				ocsp.c \
 				tls13.c
 
-WOLF_SOURCEFILES = ${addprefix $(WOLFCRYPT_SRC)/, $(WOLFCRYPT_FILES)} ${addprefix $(WOLFSSL_SRC)/, $(WOLFSSL_FILES)}
+WOLF_SOURCEFILES = ${addprefix $(WOLFCRYPT_PATH)/, $(WOLFCRYPT_FILES)} ${addprefix $(WOLFSSL_PATH)/, $(WOLFSSL_FILES)}
 
-CONTIKI_SOURCEFILES += $(WOLF_SOURCEFILES)
-
-WOLF_OBJECTDIR = $(OBJECTDIR)/$(WOLFSSL_ROOT)
+CONTIKI_SOURCEFILES += ${sort $(WOLF_SOURCEFILES)}
 
 $(WOLF_OBJECTDIR):
 	$(TRACE_MKDIR)
-	$(Q)mkdir -p $(OBJECTDIR)/$(WOLFSSL_SRC)
-	$(Q)mkdir -p $(OBJECTDIR)/$(WOLFCRYPT_SRC)
+	$(Q)mkdir -p $(OBJECTDIR)/$(WOLFSSL_PATH)
+	$(Q)mkdir -p $(OBJECTDIR)/$(WOLFCRYPT_PATH)
 
 $(WOLF_OBJECTDIR)/%.o: %.c | $(WOLF_OBJECTDIR)
 	$(TRACE_CC)
