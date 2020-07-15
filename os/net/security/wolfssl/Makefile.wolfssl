@@ -1,0 +1,97 @@
+# Build Contiki-NG with WolfSSL and WolfCrypt included
+# Additional required configuration is made in user_settings.h
+
+WOLFSSL_ROOT?=wolfssl
+WOLFSSL_REPO?= $(CONTIKI)/os/net/security/wolfssl/$(WOLFSSL_ROOT)
+
+WOLFCRYPT_PATH = $(WOLFSSL_ROOT)/wolfcrypt/src
+WOLFSSL_PATH = $(WOLFSSL_ROOT)/src
+WOLF_OBJECTDIR = $(OBJECTDIR)/$(WOLFSSL_ROOT)
+
+${info Building with wolfSSL - see license in $(WOLFSSL_REPO)/LICENSING}
+ifeq (${wildcard $(WOLFSSL_REPO)/wolfssl/options.h},)
+  ${error Could not find 'options.h' for wolfSSL. Did you initialize submodule and run './autogen.sh'?}
+endif
+
+SOURCEDIRS+= $(WOLFSSL_REPO)
+CFLAGS+= -DWOLFSSL_USER_SETTINGS -DENABLED_WOLFSSL
+
+WOLFCRYPT_FILES?=	aes.c \
+					asm.c  \
+					asn.c  \
+					arc4.c  \
+					chacha.c  \
+					chacha20_poly1305.c  \
+					cmac.c  \
+					coding.c  \
+					compress.c  \
+					cpuid.c  \
+					curve25519.c  \
+					des3.c  \
+					dh.c  \
+					dsa.c  \
+					ecc.c  \
+					ecc_fp.c  \
+					ed25519.c  \
+					error.c  \
+					fe_low_mem.c  \
+					fe_operations.c  \
+					ge_low_mem.c  \
+					ge_operations.c  \
+					hash.c  \
+					hc128.c  \
+					hmac.c  \
+					idea.c  \
+					integer.c  \
+					logging.c  \
+					md5.c  \
+					memory.c  \
+					pkcs12.c  \
+					pkcs7.c  \
+					poly1305.c  \
+					pwdbased.c  \
+					random.c  \
+					ripemd.c  \
+					rsa.c  \
+					sha.c  \
+					sha256.c  \
+					sha512.c  \
+					sha3.c  \
+					signature.c  \
+					sp_arm32.c  \
+					sp_arm64.c  \
+					sp_c32.c  \
+					sp_c64.c  \
+					sp_int.c  \
+					sp_x86_64.c  \
+					srp.c  \
+					tfm.c  \
+					wc_encrypt.c  \
+					wc_port.c  \
+					wolfevent.c  \
+					wolfmath.c 
+
+
+WOLFSSL_FILES?=	internal.c \
+				tls.c \
+				wolfio.c \
+				keys.c \
+				crl.c \
+				ssl.c \
+				sniffer.c \
+				ocsp.c \
+				tls13.c
+
+WOLF_SOURCEFILES = ${addprefix $(WOLFCRYPT_PATH)/, $(WOLFCRYPT_FILES)} ${addprefix $(WOLFSSL_PATH)/, $(WOLFSSL_FILES)}
+
+CONTIKI_SOURCEFILES += ${sort $(WOLF_SOURCEFILES)}
+
+$(WOLF_OBJECTDIR):
+	$(TRACE_MKDIR)
+	$(Q)mkdir -p $(OBJECTDIR)/$(WOLFSSL_PATH)
+	$(Q)mkdir -p $(OBJECTDIR)/$(WOLFCRYPT_PATH)
+
+$(WOLF_OBJECTDIR)/%.o: %.c | $(WOLF_OBJECTDIR)
+	$(TRACE_CC)
+	$(Q)$(CC) $(CFLAGS) -MMD -c $< -o $@
+	@$(FINALIZE_DEPENDENCY)
