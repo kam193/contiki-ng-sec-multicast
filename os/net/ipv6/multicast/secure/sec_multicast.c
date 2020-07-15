@@ -11,7 +11,7 @@
 #include "contiki-net.h"
 // #include "net/ipv6/uip.h"
 #include "net/ipv6/multicast/uip-mcast6.h"
-#include "net/ipv6/multicast/sec_multicast.h"
+#include "net/ipv6/multicast/secure/sec_multicast.h"
 #include "net/packetbuf.h"
 
 #ifndef WOLFSSL_TYPES

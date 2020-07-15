@@ -1,7 +1,5 @@
 # Build Contiki-NG with WolfSSL and WolfCrypt included
-# Additional required configuration is made in 
-
-# TODO: rename -> move one layer wolfssl more
+# Additional required configuration is made in user_settings.h
 
 WOLFSSL_ROOT?=wolfssl
 WOLFSSL_MODULE?= $(CONTIKI)/os/net/security/$(WOLFSSL_ROOT)
@@ -15,8 +13,9 @@ ifeq (${wildcard $(WOLFSSL_MODULE)/wolfssl/options.h},)
   ${error Could not find 'options.h' for wolfSSL. Did you initialize submodule and run './autogen.sh'?}
 endif
 
+MODULES+= $(CONTIKI_NG_NET_DIR)/ipv6/multicast
 SOURCEDIRS+= $(WOLFSSL_MODULE)
-CFLAGS+= -DWOLFSSL_USER_SETTINGS
+CFLAGS+= -DWOLFSSL_USER_SETTINGS -DENABLED_WOLFSSL
 
 WOLFCRYPT_FILES?=	aes.c \
 					asm.c  \

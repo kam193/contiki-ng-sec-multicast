@@ -66,7 +66,7 @@
 #include "net/ipv6/multicast/esmrf.h"
 #include "net/ipv6/multicast/roll-tm.h"
 #include "net/ipv6/multicast/mpl.h"
-#include "net/ipv6/multicast/sec_multicast.h"
+#include "net/ipv6/multicast/secure/sec_multicast.h"
 
 #include <string.h>
 /*---------------------------------------------------------------------------*/
@@ -188,6 +188,10 @@ extern const struct uip_mcast6_driver UIP_MCAST6;
 #if RPL_WITH_MULTICAST && (!UIP_CONF_IPV6_RPL)
 #error "The selected Multicast mode requires UIP_CONF_IPV6_RPL != 0"
 #error "Check the value of UIP_CONF_IPV6_RPL in conf files."
+#endif
+
+#if UIP_MCAST6_ENGINE == UIP_MCAST6_ENGINE_SEC && !defined ENABLED_WOLFSSL
+#error "Selected multicast engine requires compile with wolfSSL."
 #endif
 /*---------------------------------------------------------------------------*/
 #endif /* UIP_MCAST6_H_ */
