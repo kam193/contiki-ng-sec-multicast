@@ -22,7 +22,7 @@
 #include "engine.h"
 
 /* TODO: descriptors db should have an marker if field is free or not */
-struct sec_group_descriptor group_descriptors[SEC_MAX_GROUP_DESCRIPTORS];
+struct sec_info group_descriptors[SEC_MAX_GROUP_DESCRIPTORS];
 uint32_t first_free = 0;
 uint32_t return_code = 0;
 
@@ -33,18 +33,34 @@ static struct secure_descriptor *
 get_secure_descriptor(uip_ip6addr_t *group_addr)
 {
   for(uint32_t i = 0; i < first_free; ++i) {
-    if(uip_ip6addr_cmp(&group_descriptors[i].group_addr, group_addr)) {
-      return &group_descriptors[i].secure_descr;
+    if(uip_ip6addr_cmp(&group_descriptors[i].certificate.group_addr, group_addr)) {
+      return group_descriptors[i].certificate.secure_descriptor;
     }
   }
+
   return NULL;
 }
 /*---------------------------------------------------------------------------*/
-/* Public functions                                                          */
+/* Public functions - helpers                                                */
+/*---------------------------------------------------------------------------*/
+int
+copy_certificate(struct sec_certificate *dest, struct sec_certificate *src)
+{
+  /* TODO: safe allocate */
+  memcpy(dest, src, sizeof(struct sec_certificate));
+  if(src->mode == SEC_MODE_AES_CBC) {
+    dest->secure_descriptor = malloc(sizeof(struct secure_descriptor));
+    memcpy(dest->secure_descriptor, src->secure_descriptor, sizeof(struct secure_descriptor));
+  }
+  return 0;
+}
 /*---------------------------------------------------------------------------*/
 
+/*---------------------------------------------------------------------------*/
+/* Public functions - main features                                          */
+/*---------------------------------------------------------------------------*/
 int
-set_secure_descriptor(uip_ip6addr_t *group_addr, struct secure_descriptor *descriptor)
+add_cerificate(struct sec_certificate *certificate)
 {
   uint32_t current;
   if(first_free >= SEC_MAX_GROUP_DESCRIPTORS) {
@@ -52,11 +68,11 @@ set_secure_descriptor(uip_ip6addr_t *group_addr, struct secure_descriptor *descr
   }
 
   current = first_free++;
-  uip_ip6addr_copy(&group_descriptors[current].group_addr, group_addr);
-  memcpy(&group_descriptors[current].secure_descr, descriptor, sizeof(struct secure_descriptor));
+  group_descriptors[current].flags = SEC_FLAG_MANUALLY_SET;
+  copy_certificate(&group_descriptors[current].certificate, certificate);
 
-  PRINTF("Secure description for ");
-  PRINT6ADDR(group_addr);
+  PRINTF("Certificate for ");
+  PRINT6ADDR(&certificate->group_addr);
   PRINTF(" is set\n");
 
   return 0;

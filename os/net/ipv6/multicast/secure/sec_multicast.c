@@ -49,7 +49,7 @@ out(void)
     UIP_UDP_BUF->udplen = UIP_HTONS(data_len + UIP_UDPH_LEN);
     /* TODO: checksum */
   } else {
-    PRINTF("Encryption failed.");
+    PRINTF("Encryption failed.\n");
   }
 
   SEC_MULTICAST_BASE_DRIVER.out();
@@ -75,7 +75,7 @@ in()
       UIP_UDP_BUF->udplen = UIP_HTONS(data_len + UIP_UDPH_LEN);
       /* TODO: checksum */
     } else {
-      PRINTF("Decryption failed.");
+      PRINTF("Decryption failed.\n");
     }
   }
 
