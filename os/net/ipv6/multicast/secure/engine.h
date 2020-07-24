@@ -24,11 +24,14 @@
 
 #define SEC_MODE_NONE         0 /* TODO: implement */
 #define SEC_MODE_AES_CBC      1
+#define SEC_MODE_RSA_PRIV     2
+#define SEC_MODE_RSA_PUB      3
 
 /* Flags to use in certificates and/or engine */
 
 #define SEC_FLAG_DECRYPT      (1 << 0)
 #define SEC_FLAG_ENCRYPT      (1 << 1)
+
 #define SEC_FLAG_MANUALLY_SET (1 << 2)
 
 /* Structures */
@@ -40,14 +43,29 @@ struct sec_certificate {
   void *secure_descriptor;
 };
 
+struct sec_info {
+  uint8_t flags;
+  struct sec_certificate certificate;
+};
+
+/* Descriptors for specific types */
+
 struct secure_descriptor {
   unsigned char aes_key[16];
   unsigned char aes_vi[16];
 };
 
-struct sec_info {
-  uint8_t flags;
-  struct sec_certificate certificate;
+/* RSA - expected 100-chars length. TODO: make checks */
+struct rsa_public_descriptor {
+  size_t n_length;
+  size_t e_length;
+  unsigned char *n;
+  unsigned char *e;
+};
+
+struct rsa_private_descriptor {
+  size_t key_length;
+  unsigned char *key_der;
 };
 
 /* Functions */
