@@ -15,6 +15,7 @@
 
 #include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/aes.h>
+#include <wolfssl/wolfcrypt/rsa.h>
 
 #define DEBUG DEBUG_PRINT
 #include "net/ipv6/uip-debug.h"
@@ -86,6 +87,69 @@ aes_cbc_decrypt(struct sec_certificate *cert, unsigned char *message,
   return 0;
 }
 /*---------------------------------------------------------------------------*/
+/* RSA helpers                                                               */
+/*---------------------------------------------------------------------------*/
+int
+rsa_encrypt(struct sec_certificate *cert, unsigned char *message,
+            uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len)
+{
+  WC_RNG rng;
+  RsaKey key; /* TODO: implement on load cert */
+  int ret;
+  struct rsa_public_descriptor *desc = cert->secure_descriptor;
+
+  /* TODO: macro for code like this */
+  if((return_code = wc_InitRng(&rng)) != 0) {
+    return return_code;
+  }
+  if((return_code = wc_InitRsaKey(&key, NULL)) != 0) {
+    return return_code;
+  }
+  if((return_code = wc_RsaPublicKeyDecodeRaw(desc->n, desc->n_length, desc->e, desc->e_length, &key)) != 0) {
+    return return_code;
+  }
+
+  ret = wc_RsaPublicEncrypt(message, message_len, out_buffer, *out_len, &key, &rng);
+  if(ret >= 0) {
+    *out_len = ret;
+  }
+
+  wc_FreeRng(&rng);
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+int
+rsa_decrypt(struct sec_certificate *cert, unsigned char *message,
+            uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len)
+{
+  WC_RNG rng;
+  RsaKey key; /* TODO: implement on load cert */
+  int ret;
+  word32 key_index;
+  struct rsa_private_descriptor *desc = cert->secure_descriptor;
+
+  /* TODO: macro for code like this */
+  if((return_code = wc_InitRng(&rng)) != 0) {
+    return return_code;
+  }
+  if((return_code = wc_InitRsaKey(&key, NULL)) != 0) {
+    return return_code;
+  }
+  key_index = 0;
+  if((return_code = wc_RsaPrivateKeyDecode(desc->key_der, &key_index, &key, desc->key_length)) != 0) {
+    return return_code;
+  }
+
+  key.rng = &rng;
+  ret = wc_RsaPrivateDecrypt(message, message_len, out_buffer, *out_len, &key);
+  if(ret >= 0) {
+    *out_len = ret;
+  }
+
+  wc_FreeRng(&rng);
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
 /* Public functions - helpers                                                */
 /*---------------------------------------------------------------------------*/
 int
@@ -154,6 +218,8 @@ encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t messa
   switch(cert->mode) {
   case SEC_MODE_AES_CBC:
     return aes_cbc_encrypt(cert, message, message_len, out_buffer, out_len);
+  case SEC_MODE_RSA_PUB:
+    return rsa_encrypt(cert, message, message_len, out_buffer, out_len);
 
   default:
     return -1;
@@ -173,6 +239,8 @@ decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t messa
   switch(cert->mode) {
   case SEC_MODE_AES_CBC:
     return aes_cbc_decrypt(cert, message, message_len, out_buffer, out_len);
+  case SEC_MODE_RSA_PRIV:
+    return rsa_decrypt(cert, message, message_len, out_buffer, out_len);
 
   default:
     return -1;
