@@ -12,6 +12,7 @@
 #include "net/ipv6/multicast/uip-mcast6.h"
 #include "net/ipv6/multicast/secure/sec_multicast.h"
 #include "net/packetbuf.h"
+#include "net/routing/rpl-classic/rpl.h"
 
 #include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/aes.h>
@@ -19,14 +20,132 @@
 
 #define DEBUG DEBUG_PRINT
 #include "net/ipv6/uip-debug.h"
+#include "tmp_debug.h"
 
 #include "engine.h"
+
+static struct simple_udp_connection certexch_conn;
+static bool certexch_initialized = false;
 
 /* TODO: descriptors db should have an marker if field is free or not */
 struct sec_info group_descriptors[SEC_MAX_GROUP_DESCRIPTORS];
 uint32_t first_free = 0;
 uint32_t return_code = 0;
 
+/*---------------------------------------------------------------------------*/
+/* CERTIFICATE EXCHANGE                                                      */
+/*---------------------------------------------------------------------------*/
+static int
+decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t size)
+{
+  uint16_t decoded = 0;
+  /* Decode header */
+  if(sizeof(uip_ip6addr_t) + 2 > size - decoded) {
+    return -1;
+  }
+  memcpy(cert, data, sizeof(uip_ip6addr_t) + 2);
+  decoded += sizeof(uip_ip6addr_t) + 2;
+
+  switch(cert->mode) {
+  case SEC_MODE_AES_CBC:
+    if(sizeof(struct secure_descriptor) > size - decoded) {
+      return -1;
+    }
+    cert->secure_descriptor = malloc(sizeof(struct secure_descriptor)); /* TODO: check */
+    memcpy(cert->secure_descriptor, data + decoded, sizeof(struct secure_descriptor));
+    decoded += sizeof(struct secure_descriptor);
+    break;
+
+  case SEC_MODE_RSA_PUB:
+    if(2 * sizeof(size_t) > size - decoded) {
+      return -1;
+    }
+    cert->secure_descriptor = malloc(sizeof(struct rsa_public_descriptor)); /* TODO: check */
+    struct rsa_public_descriptor *desc = cert->secure_descriptor;
+
+    memcpy(desc, data + decoded, 2 * sizeof(size_t));
+    decoded += 2 * sizeof(size_t);
+
+    if(desc->n_length + desc->e_length > size - decoded) {
+      return -1;
+    }
+
+    desc->n = malloc(desc->n_length); /* TODO: Check */
+    memcpy(desc->n, data + decoded, desc->n_length);
+    decoded += desc->n_length;
+
+    desc->e = malloc(desc->e_length); /* TODO: Check */
+    memcpy(desc->e, data + decoded, desc->e_length);
+    decoded += desc->e_length;
+    break;
+
+  default:
+    break;
+  }
+
+  if(decoded != size) {
+    PRINTF("Invalid decoding. Size %u vs. decoded %u\n", size, decoded);
+    return -2;
+  }
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+static void
+cert_exchange_answer_callback(struct simple_udp_connection *c,
+                              const uip_ipaddr_t *sender_addr,
+                              uint16_t sender_port,
+                              const uip_ipaddr_t *receiver_addr,
+                              uint16_t receiver_port,
+                              const uint8_t *data,
+                              uint16_t datalen)
+{
+  /* TODO: max data len */
+  uint8_t flags = *(data);
+  if(!(flags & CERT_EXCHANGE_ANSWER)) {
+    PRINTF("CertExch: Invalid message, skipped\n");
+    return;
+  }
+
+  /* TODO: allocate and free temporary cert */
+  struct sec_certificate cert;
+  if (decode_bytes_to_cert(&cert, data + 1, datalen - 1) != 0){
+    PRINTF("Decoding cert fails.\n");
+    return;
+  }
+
+  add_cerificate(&cert);
+}
+static void
+cert_exchange_init()
+{
+  if(certexch_initialized) {
+    return;
+  }
+
+  simple_udp_register(&certexch_conn, CERT_ANSWER_PORT, NULL,
+                      RP_CERT_SERVER_PORT, cert_exchange_answer_callback);
+}
+int
+get_certificate_for(uip_ip6addr_t *mcast_addr)
+{
+  /* TODO: Retry and timeout */
+  cert_exchange_init();
+
+  uint8_t data[17];
+  data[0] = CERT_EXCHANGE_REQUEST;
+  memcpy((data + 1), mcast_addr, sizeof(uip_ip6addr_t));
+
+  /* TODO: wait until reachable */
+  uip_ip6addr_t root_addr;
+  NETSTACK_ROUTING.get_root_ipaddr(&root_addr);
+
+  /* TODO: Am I root? */
+  simple_udp_sendto(&certexch_conn, data, sizeof(data), &root_addr);
+  PRINTF("CertExch: Send request for ");
+  PRINT6ADDR(mcast_addr);
+  PRINTF("\n");
+  return 0;
+}
 /*---------------------------------------------------------------------------*/
 /* Private functions                                                         */
 /*---------------------------------------------------------------------------*/
@@ -191,8 +310,10 @@ add_cerificate(struct sec_certificate *certificate)
 {
   uint32_t current;
   if(first_free >= SEC_MAX_GROUP_DESCRIPTORS) {
+    PRINTF("No more space for cer\n");
     return -1;
   }
+  // TODO: check if not exists yet
 
   current = first_free++;
   group_descriptors[current].flags = SEC_FLAG_MANUALLY_SET;

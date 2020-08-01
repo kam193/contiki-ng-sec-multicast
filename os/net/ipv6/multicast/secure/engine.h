@@ -34,6 +34,19 @@
 
 #define SEC_FLAG_MANUALLY_SET (1 << 2)
 
+/* Certificate exchange constants */
+
+#ifndef RP_CERT_SERVER_PORT
+#define RP_CERT_SERVER_PORT 5050
+#endif
+
+#ifndef CERT_ANSWER_PORT
+#define CERT_ANSWER_PORT 6060
+#endif
+
+#define CERT_EXCHANGE_REQUEST (1 << 7)
+#define CERT_EXCHANGE_ANSWER  (1 << 6)
+
 /* Structures */
 
 struct sec_certificate {
@@ -73,6 +86,10 @@ struct rsa_private_descriptor {
 int add_cerificate(struct sec_certificate *certificate);
 int encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len);
 int decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len);
+
+/* Certificate Exchange */
+
+int get_certificate_for(uip_ip6addr_t *mcast_addr);
 
 /* Helper functions */
 
