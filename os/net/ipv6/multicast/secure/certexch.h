@@ -35,5 +35,6 @@ struct ce_certificate {
 
 int certexch_import_ca_key(const struct ca_cert *cert);
 int certexch_verify_cert(struct ce_certificate *cert);
+int certexch_import_own_cert(struct ce_certificate *cert);
 
 #endif
