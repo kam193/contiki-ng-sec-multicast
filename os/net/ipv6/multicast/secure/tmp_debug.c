@@ -22,9 +22,9 @@ print_chars(int len, const unsigned char buffer[])
 void
 print_hex(int len, const unsigned char buffer[])
 {
-  printf("Out: %i; ", len);
+  PRINTF("Out: %i; ", len);
   for(int i = 0; i < len; i++) {
-    printf("%#x, ", (unsigned char)buffer[i]);
+    PRINTF("%#x, ", (unsigned char)buffer[i]);
   }
-  printf("\n");
+  PRINTF("\n");
 }
