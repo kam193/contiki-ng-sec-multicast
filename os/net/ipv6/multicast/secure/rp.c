@@ -14,6 +14,8 @@
 #include "net/ipv6/simple-udp.h"
 
 #include "rp.h"
+#include "certexch.h"
+#include "common.h"
 
 #define DEBUG DEBUG_PRINT
 #include "net/ipv6/uip-debug.h"
@@ -106,6 +108,29 @@ send_requested_cert(struct sec_certificate *cert, const uip_ip6addr_t *dest)
 }
 /*---------------------------------------------------------------------------*/
 static void
+rp_public_cert_request_handler(const uip_ipaddr_t *sender_addr,
+                               uint16_t sender_port,
+                               const uint8_t *data,
+                               uint16_t datalen)
+{
+  if(datalen != 1) {
+    return;
+  }
+  uint16_t out_size = sizeof(buffer);
+  buffer[0] = CE_RP_PUB_ANSWER;
+  if (certexch_encode_cert(buffer + 2, &out_size, certexch_own_pub_cert()) != 0){
+    PRINTF("Failed encoding RP PUB\n");
+    return;
+  }
+  buffer[1] = out_size;
+  print_hex(out_size + 2, buffer);
+  PRINTF("CertExch: Sending RP pub answer to ");
+  PRINT6ADDR(sender_addr);
+  PRINTF("\n");
+  simple_udp_sendto(&cert_exch, buffer, out_size + 2, sender_addr);
+}
+/*---------------------------------------------------------------------------*/
+static void
 cert_request_callback(struct simple_udp_connection *c,
                       const uip_ipaddr_t *sender_addr,
                       uint16_t sender_port,
@@ -115,28 +140,45 @@ cert_request_callback(struct simple_udp_connection *c,
                       uint16_t datalen)
 {
   static struct sec_certificate *cert;
-  uint8_t flags = *(data);
-  if(!(flags & CERT_EXCHANGE_REQUEST) || datalen != REQUEST_LEN) {
-    PRINTF("CertExch: Invalid message, skipped\n");
+
+  request_handler_t handler;
+
+  uint8_t type = *(data);
+  switch(type) {
+  case CERT_EXCHANGE_REQUEST:
+    if(!(type == CERT_EXCHANGE_REQUEST) || datalen != REQUEST_LEN) {
+      PRINTF("CertExch: Invalid message, skipped\n");
+      return;
+    }
+
+    uip_ip6addr_t mcast_addr;
+    memcpy(&mcast_addr, data + 1, sizeof(uip_ip6addr_t));
+
+    PRINTF("CertExch: GOT REQUEST FOR: ");
+    PRINT6ADDR(&mcast_addr);
+    PRINTF("\n");
+
+    cert = find_certificate(&mcast_addr);
+    if(cert == NULL) {
+      PRINTF("CertExch: Requested cert not found\n");
+      return;
+    }
+    PRINTF("CertExch: Sending cert answer to ");
+    PRINT6ADDR(sender_addr);
+    PRINTF("\n");
+    send_requested_cert(cert, sender_addr);
     return;
+    break;
+
+  case CE_RP_PUB_REQUEST:
+    handler = rp_public_cert_request_handler;
+    break;
+
+  default:
+    break;
   }
 
-  uip_ip6addr_t mcast_addr;
-  memcpy(&mcast_addr, data + 1, sizeof(uip_ip6addr_t));
-
-  PRINTF("CertExch: GOT REQUEST FOR: ");
-  PRINT6ADDR(&mcast_addr);
-  PRINTF("\n");
-
-  cert = find_certificate(&mcast_addr);
-  if(cert == NULL) {
-    PRINTF("CertExch: Requested cert not found\n");
-    return;
-  }
-  PRINTF("CertExch: Sending cert answer to ");
-  PRINT6ADDR(sender_addr);
-  PRINTF("\n");
-  send_requested_cert(cert, sender_addr);
+  handler(sender_addr, sender_port, data, datalen);
 }
 /*---------------------------------------------------------------------------*/
 int

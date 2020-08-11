@@ -23,6 +23,7 @@
 #include "tmp_debug.h"
 
 #include "engine.h"
+#include "certexch.h"
 
 static struct simple_udp_connection certexch_conn;
 static bool certexch_initialized = false;
@@ -91,6 +92,33 @@ decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t
 }
 /*---------------------------------------------------------------------------*/
 static void
+rp_public_cert_answer_handler(const uip_ipaddr_t *sender_addr,
+                              uint16_t sender_port,
+                              const uint8_t *data,
+                              uint16_t datalen)
+{
+  struct ce_certificate tmp;
+  if(datalen < 3) {
+    return;
+  }
+  uint16_t cert_len = (uint16_t)(data[1]);
+  PRINTF("Pub len %d\n", cert_len);
+  print_hex(datalen, data);
+  if(certexch_decode_cert(&tmp, data + 2, (uint16_t)(data[1])) != 0) {
+    PRINTF("RP PUB decode error\n");
+
+    return;
+  }
+  if(certexch_verify_cert(&tmp) != 0) {
+    PRINTF("RP PUB verify error\n");
+
+    return;
+  }
+  certexch_import_rp_cert(&tmp);
+  free_ce_certificate(&tmp);
+  PRINTF("GOT RP PUB!\n");
+}
+static void
 cert_exchange_answer_callback(struct simple_udp_connection *c,
                               const uip_ipaddr_t *sender_addr,
                               uint16_t sender_port,
@@ -99,21 +127,32 @@ cert_exchange_answer_callback(struct simple_udp_connection *c,
                               const uint8_t *data,
                               uint16_t datalen)
 {
+  request_handler_t handler;
+
   /* TODO: max data len */
   uint8_t flags = *(data);
-  if(!(flags & CERT_EXCHANGE_ANSWER)) {
+
+  switch(flags) {
+  case CERT_EXCHANGE_ANSWER:
+    ;
+    /* TODO: allocate and free temporary cert */
+    struct sec_certificate cert;
+    if(decode_bytes_to_cert(&cert, data + 1, datalen - 1) != 0) {
+      PRINTF("Decoding cert fails.\n");
+      return;
+    }
+    add_cerificate(&cert);
+    break;
+
+  case CE_RP_PUB_ANSWER:
+    handler = rp_public_cert_answer_handler;
+    break;
+
+  default:
     PRINTF("CertExch: Invalid message, skipped\n");
-    return;
+    break;
   }
-
-  /* TODO: allocate and free temporary cert */
-  struct sec_certificate cert;
-  if (decode_bytes_to_cert(&cert, data + 1, datalen - 1) != 0){
-    PRINTF("Decoding cert fails.\n");
-    return;
-  }
-
-  add_cerificate(&cert);
+  handler(sender_addr, sender_port, data, datalen);
 }
 static void
 cert_exchange_init()
@@ -144,6 +183,21 @@ get_certificate_for(uip_ip6addr_t *mcast_addr)
   PRINTF("CertExch: Send request for ");
   PRINT6ADDR(mcast_addr);
   PRINTF("\n");
+  return 0;
+}
+int
+get_rp_cert()
+{
+  cert_exchange_init();
+  uint8_t data = CE_RP_PUB_REQUEST;
+
+  /* TODO: wait until reachable */
+  uip_ip6addr_t root_addr;
+  NETSTACK_ROUTING.get_root_ipaddr(&root_addr);
+
+  /* TODO: Am I root? */
+  simple_udp_sendto(&certexch_conn, &data, 1, &root_addr);
+  PRINTF("CertExch: Send request for RP pub cert\n");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -313,7 +367,7 @@ add_cerificate(struct sec_certificate *certificate)
     PRINTF("No more space for cer\n");
     return -1;
   }
-  // TODO: check if not exists yet
+  /* TODO: check if not exists yet */
 
   current = first_free++;
   group_descriptors[current].flags = SEC_FLAG_MANUALLY_SET;

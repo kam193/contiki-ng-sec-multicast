@@ -44,8 +44,10 @@
 #define CERT_ANSWER_PORT 6060
 #endif
 
-#define CERT_EXCHANGE_REQUEST (1 << 7)
-#define CERT_EXCHANGE_ANSWER  (1 << 6)
+#define CERT_EXCHANGE_REQUEST 1
+#define CERT_EXCHANGE_ANSWER  2
+#define CE_RP_PUB_REQUEST     3
+#define CE_RP_PUB_ANSWER      4
 
 /* Structures */
 
@@ -90,6 +92,7 @@ int decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t m
 /* Certificate Exchange */
 
 int get_certificate_for(uip_ip6addr_t *mcast_addr);
+int get_rp_cert();
 
 /* Helper functions */
 
