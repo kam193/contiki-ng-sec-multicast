@@ -33,6 +33,8 @@ struct sec_info group_descriptors[SEC_MAX_GROUP_DESCRIPTORS];
 uint32_t first_free = 0;
 uint32_t return_code = 0;
 
+static uint8_t buffer[1000];
+
 /*---------------------------------------------------------------------------*/
 /* CERTIFICATE EXCHANGE                                                      */
 /*---------------------------------------------------------------------------*/
@@ -118,6 +120,21 @@ rp_public_cert_answer_handler(const uip_ipaddr_t *sender_addr,
   free_ce_certificate(&tmp);
   PRINTF("GOT RP PUB!\n");
 }
+/*---------------------------------------------------------------------------*/
+static void
+ce_answer_handler(const uip_ipaddr_t *sender_addr,
+                  uint16_t sender_port,
+                  const uint8_t *data,
+                  uint16_t datalen)
+{
+  /* TODO: allocate and free temporary cert */
+  struct sec_certificate cert;
+  if(decode_bytes_to_cert(&cert, data + 1, datalen - 1) != 0) {
+    PRINTF("Decoding cert fails.\n");
+    return;
+  }
+  add_cerificate(&cert);
+}
 static void
 cert_exchange_answer_callback(struct simple_udp_connection *c,
                               const uip_ipaddr_t *sender_addr,
@@ -134,14 +151,7 @@ cert_exchange_answer_callback(struct simple_udp_connection *c,
 
   switch(flags) {
   case CERT_EXCHANGE_ANSWER:
-    ;
-    /* TODO: allocate and free temporary cert */
-    struct sec_certificate cert;
-    if(decode_bytes_to_cert(&cert, data + 1, datalen - 1) != 0) {
-      PRINTF("Decoding cert fails.\n");
-      return;
-    }
-    add_cerificate(&cert);
+    handler = ce_answer_handler;
     break;
 
   case CE_RP_PUB_ANSWER:
@@ -150,7 +160,7 @@ cert_exchange_answer_callback(struct simple_udp_connection *c,
 
   default:
     PRINTF("CertExch: Invalid message, skipped\n");
-    break;
+    return;
   }
   handler(sender_addr, sender_port, data, datalen);
 }
@@ -163,24 +173,44 @@ cert_exchange_init()
 
   simple_udp_register(&certexch_conn, CERT_ANSWER_PORT, NULL,
                       RP_CERT_SERVER_PORT, cert_exchange_answer_callback);
+  certexch_initialized = true;
 }
 int
 get_certificate_for(uip_ip6addr_t *mcast_addr)
 {
+  /* Message format: TYPE | CERT_LEN | TIMESTAMP[2] | ADDR[16] | *PUB_CERT */
   /* TODO: Retry and timeout */
   cert_exchange_init();
+  
+  buffer[0] = CERT_EXCHANGE_REQUEST;
+  
+  /* Type & cert len are not padded, timestamp+addr -> encrypted and padded */
+  uint32_t padded_size = certexch_count_padding(2 + sizeof(uip_ip6addr_t));
+  uint8_t *tmp = malloc(padded_size);
+  
+  memcpy((tmp + 2), mcast_addr, sizeof(uip_ip6addr_t));
+  /* TODO: Padding should be random! */
+  memset(tmp + 2 + sizeof(uip_ip6addr_t), 0, padded_size - 2 - sizeof(uip_ip6addr_t));
 
-  uint8_t data[17];
-  data[0] = CERT_EXCHANGE_REQUEST;
-  memcpy((data + 1), mcast_addr, sizeof(uip_ip6addr_t));
+  uint32_t size = sizeof(buffer) - padded_size;
+  if(certexch_encode_data(buffer+2, &size, tmp, padded_size, certexch_rp_pub_cert()) != 0){
+    PRINTF("Encoding error\n");
+    return -1;
+  }
+  size += 2;
+  free(tmp);
+
+  uint16_t cert_len = sizeof(buffer) - size;
+  certexch_encode_cert(buffer + size, &cert_len, certexch_own_pub_cert());
+  buffer[1] = (uint8_t)cert_len;
 
   /* TODO: wait until reachable */
   uip_ip6addr_t root_addr;
   NETSTACK_ROUTING.get_root_ipaddr(&root_addr);
 
   /* TODO: Am I root? */
-  simple_udp_sendto(&certexch_conn, data, sizeof(data), &root_addr);
-  PRINTF("CertExch: Send request for ");
+  simple_udp_sendto(&certexch_conn, buffer, size + cert_len, &root_addr);
+  PRINTF("CertExch: Send request for %d ", size);
   PRINT6ADDR(mcast_addr);
   PRINTF("\n");
   return 0;

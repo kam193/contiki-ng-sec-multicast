@@ -50,6 +50,14 @@ const struct ce_certificate *certexch_rp_pub_cert();
 int certexch_decode_cert(struct ce_certificate *dest_cert, const uint8_t *src_data, uint16_t src_len);
 int certexch_encode_cert(uint8_t *dest_data, uint16_t *dest_len, const struct ce_certificate *src_cert);
 
+int certexch_encode_data(uint8_t *dest_data, uint32_t *dest_len,
+                         const uint8_t *src_data, uint32_t src_len,
+                         const struct ce_certificate *receiver_pub);
+int certexch_decode_data(uint8_t *dest_data, uint32_t *dest_len,
+                         const uint8_t *src_data, uint32_t src_len,
+                         const struct ce_certificate *sender_pub);
+uint8_t certexch_count_padding(uint8_t size);
+
 void free_ce_certificate(struct ce_certificate *cert);
 
 #endif

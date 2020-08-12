@@ -111,10 +111,10 @@ free_ce_certificate(struct ce_certificate *cert)
     free(cert->pub);
     cert->pub = NULL;
   }
-  // if(cert->priv) {
-  //   free(cert->priv);
-  //   cert->pub = NULL;
-  // }
+  /* if(cert->priv) { */
+  /*   free(cert->priv); */
+  /*   cert->pub = NULL; */
+  /* } */
   if(cert->signature) {
     free(cert->signature);
     cert->pub = NULL;
@@ -122,6 +122,47 @@ free_ce_certificate(struct ce_certificate *cert)
   cert->pub_len = 0;
   cert->signature_len = 0;
   cert->priv_len = 0;
+}
+/*---------------------------------------------------------------------------*/
+/* ENCRYPTION BASED ON CERTS */
+/*---------------------------------------------------------------------------*/
+uint8_t
+certexch_count_padding(uint8_t size)
+{
+  uint8_t padded_size = (size / 16) * 16;
+  if(padded_size < size) {
+    padded_size += 16;
+  }
+  return padded_size;
+}
+int
+certexch_encode_data(uint8_t *dest_data, uint32_t *dest_len,
+                     const uint8_t *src_data, uint32_t src_len,
+                     const struct ce_certificate *receiver_pub)
+{
+  ecc_key receiver;
+  CHECK_0(wc_ecc_init(&receiver));
+  CHECK_0(wc_ecc_import_x963(receiver_pub->pub, receiver_pub->pub_len, &receiver));
+  int ret;
+  ret = wc_ecc_encrypt(&own_key, &receiver, src_data, src_len, dest_data, dest_len, NULL);
+  if (ret != 0){
+    PRINTF("ENCODING ERROR %d\n", ret);
+    return -1;
+  }
+  wc_ecc_free(&receiver);
+  return 0;
+}
+int
+certexch_decode_data(uint8_t *dest_data, uint32_t *dest_len,
+                     const uint8_t *src_data, uint32_t src_len,
+                     const struct ce_certificate *sender_pub)
+{
+  ecc_key sender;
+  CHECK_0(wc_ecc_init(&sender));
+  CHECK_0(wc_ecc_import_x963(sender_pub->pub, sender_pub->pub_len, &sender));
+  CHECK_0(wc_ecc_decrypt(&own_key, &sender, src_data, src_len, dest_data, dest_len, NULL));
+  wc_ecc_free(&sender);
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
 /* ENCODING/DECODING CERTIFICATES */
