@@ -145,7 +145,7 @@ certexch_encode_data(uint8_t *dest_data, uint32_t *dest_len,
   CHECK_0(wc_ecc_import_x963(receiver_pub->pub, receiver_pub->pub_len, &receiver));
   int ret;
   ret = wc_ecc_encrypt(&own_key, &receiver, src_data, src_len, dest_data, dest_len, NULL);
-  if (ret != 0){
+  if(ret != 0) {
     PRINTF("ENCODING ERROR %d\n", ret);
     return -1;
   }
@@ -160,7 +160,13 @@ certexch_decode_data(uint8_t *dest_data, uint32_t *dest_len,
   ecc_key sender;
   CHECK_0(wc_ecc_init(&sender));
   CHECK_0(wc_ecc_import_x963(sender_pub->pub, sender_pub->pub_len, &sender));
-  CHECK_0(wc_ecc_decrypt(&own_key, &sender, src_data, src_len, dest_data, dest_len, NULL));
+  print_hex(src_len, src_data);
+  int ret;
+  ret = wc_ecc_decrypt(&own_key, &sender, src_data, src_len, dest_data, dest_len, NULL);
+  if(ret != 0) {
+    PRINTF("DECRYPTING ERROR %d\n", ret);
+    return -1;
+  }
   wc_ecc_free(&sender);
   return 0;
 }

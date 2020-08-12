@@ -28,6 +28,7 @@ static struct simple_udp_connection cert_exch;
 static struct sec_certificate propagated_certs[CERTEXCH_MAX_PROPAGATED_CERTS];
 static uint32_t first_free = 0;
 static uint8_t buffer[MAX_ANSWER_LENGTH];
+static uint8_t second_buffer[MAX_ANSWER_LENGTH];
 
 /*---------------------------------------------------------------------------*/
 static struct sec_certificate *
@@ -88,21 +89,6 @@ encode_cert_to_byte(struct sec_certificate *cert, uint8_t *buff, uint32_t *size)
   }
 
   *size = result_size;
-  return 0;
-}
-/*---------------------------------------------------------------------------*/
-static int
-send_requested_cert(struct sec_certificate *cert, const uip_ip6addr_t *dest)
-{
-  uint32_t size = sizeof(buffer);
-  memset(buffer, 0, size);
-  if(encode_cert_to_byte(cert, buffer + 1, &size) != 0) {
-    PRINTF("Encoding cert failed\n");
-    return -1;
-  }
-  buffer[0] = CERT_EXCHANGE_ANSWER;
-  size += 1;
-  simple_udp_sendto(&cert_exch, buffer, size, dest);
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -177,7 +163,25 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
   PRINTF("CertExch: Sending cert answer to ");
   PRINT6ADDR(sender_addr);
   PRINTF("\n");
-  send_requested_cert(cert, sender_addr);
+
+  out_size = sizeof(second_buffer);
+  memset(second_buffer, 0, out_size);
+  if(encode_cert_to_byte(cert, second_buffer, &out_size) != 0) {
+    PRINTF("Encoding cert failed\n");
+    return;
+  }
+  out_size = certexch_count_padding(out_size);
+  // TODO: set padding to buffer
+  uint32_t response_len = sizeof(buffer) - 1;
+  if (certexch_encode_data(buffer+1, &response_len, second_buffer, out_size, &client_cert) != 0){
+    PRINTF("Encrypt response failed\n");
+    return;
+  }
+
+  buffer[0] = CERT_EXCHANGE_ANSWER;
+  response_len += 1;
+  simple_udp_sendto(&cert_exch, buffer, response_len, sender_addr);
+  free_ce_certificate(&client_cert);
 }
 /*---------------------------------------------------------------------------*/
 static void

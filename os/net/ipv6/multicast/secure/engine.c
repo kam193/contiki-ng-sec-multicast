@@ -86,10 +86,10 @@ decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t
     break;
   }
 
-  if(decoded != size) {
-    PRINTF("Invalid decoding. Size %u vs. decoded %u\n", size, decoded);
-    return -2;
-  }
+  // if(decoded != size) {
+  //   PRINTF("Invalid decoding. Size %u vs. decoded %u\n", size, decoded);
+  //   return -2;
+  // }
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -128,8 +128,15 @@ ce_answer_handler(const uip_ipaddr_t *sender_addr,
                   uint16_t datalen)
 {
   /* TODO: allocate and free temporary cert */
+  print_hex(datalen, data);
+  uint32_t out_size = sizeof(buffer);
+  if(certexch_decode_data(buffer, &out_size, data+1, datalen-1, certexch_rp_pub_cert()) != 0){
+    PRINTF("Decrypting answer failed\n");
+    return;
+  }
+  print_hex(out_size, buffer);
   struct sec_certificate cert;
-  if(decode_bytes_to_cert(&cert, data + 1, datalen - 1) != 0) {
+  if(decode_bytes_to_cert(&cert, buffer, out_size) != 0) {
     PRINTF("Decoding cert fails.\n");
     return;
   }
