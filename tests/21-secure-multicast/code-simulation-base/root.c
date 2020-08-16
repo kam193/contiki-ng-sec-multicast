@@ -1,0 +1,126 @@
+/* File comes from contiki examples */
+
+#include "contiki.h"
+#include "contiki-lib.h"
+#include "contiki-net.h"
+#include "net/ipv6/multicast/uip-mcast6.h"
+#include "net/ipv6/multicast/secure/engine.h"
+#include "net/ipv6/multicast/secure/certexch.h"
+#include "net/ipv6/multicast/secure/rp.h"
+
+#include "certs.h"
+
+#include <string.h>
+#include <inttypes.h>
+
+#define DEBUG DEBUG_PRINT
+#include "net/ipv6/uip-debug.h"
+#include "net/routing/routing.h"
+
+#define FAIL_NOT_0(expr) if((expr) != 0) { PRINTF("[CRITICAL]\n"); PROCESS_EXIT(); }
+
+#define MAX_PAYLOAD_LEN 120
+#define MCAST_SINK_UDP_PORT 3001
+#define SEND_INTERVAL CLOCK_SECOND
+#define ITERATIONS 5
+
+/* Start sending messages START_DELAY secs after we start so that routing can
+ * converge */
+#define START_DELAY 20
+
+static struct uip_udp_conn *mcast_net_1;
+static struct uip_udp_conn *mcast_net_2;
+
+static char test_message[] = "message12345678";
+static uip_ipaddr_t ipaddr_net1;
+static uip_ipaddr_t ipaddr_net2;
+
+static char buf[MAX_PAYLOAD_LEN];
+
+/*---------------------------------------------------------------------------*/
+PROCESS(rpl_root_process, "RPL ROOT, Multicast Sender");
+AUTOSTART_PROCESSES(&rpl_root_process);
+/*---------------------------------------------------------------------------*/
+static void
+multicast_send(struct uip_udp_conn *connection)
+{
+  PRINTF("[SIMULATION] Sending message to ");
+  PRINT6ADDR(&connection->ripaddr);
+  PRINTF("\n");
+  memset(buf, 0, MAX_PAYLOAD_LEN);
+  memcpy(buf, test_message, sizeof(test_message));
+  uip_udp_packet_send(connection, buf, sizeof(test_message));
+}
+/*---------------------------------------------------------------------------*/
+static void
+prepare_mcast(uip_ipaddr_t *addr, struct uip_udp_conn **connection)
+{
+  *connection = udp_new(addr, UIP_HTONS(MCAST_SINK_UDP_PORT), NULL);
+}
+/*---------------------------------------------------------------------------*/
+static void
+prepare_data(void)
+{
+  uip_ip6addr(&ipaddr_net1, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xABCD);
+  uip_ip6addr_copy(&cert.group_addr, &ipaddr_net1);
+
+  uip_ip6addr(&ipaddr_net2, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xA00B);
+  uip_ip6addr_copy(&cert_2.group_addr, &ipaddr_net2);
+}
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(rpl_root_process, ev, data)
+{
+  static struct etimer et;
+
+  PROCESS_BEGIN();
+
+  PRINTF("Multicast Engine: '%s'\n", UIP_MCAST6.name);
+
+  prepare_data();
+
+  FAIL_NOT_0(add_cerificate(&cert))
+  FAIL_NOT_0(add_cerificate(&cert_2));
+
+  FAIL_NOT_0(certexch_import_ca_key(&ca));
+  FAIL_NOT_0(certexch_import_own_cert(&rp_private_cert));
+
+  NETSTACK_ROUTING.root_start();
+
+  prepare_mcast(&ipaddr_net1, &mcast_net_1);
+  prepare_mcast(&ipaddr_net2, &mcast_net_2);
+
+  FAIL_NOT_0(init_cert_server());
+
+  FAIL_NOT_0(propagate_certificate(&cert));
+  PRINTF("[SIMULATION] Starting propagate group key for ");
+  PRINT6ADDR(&cert.group_addr);
+  PRINTF("\n");
+
+  // FAIL_NOT_0(propagate_certificate(&cert_2));
+  // PRINTF("[SIMULATION] Starting propagate group key for ");
+  // PRINT6ADDR(&cert_2.group_addr);
+  // PRINTF("\n");
+
+  etimer_set(&et, START_DELAY * CLOCK_SECOND);
+  while(1) {
+    PROCESS_YIELD();
+    if(etimer_expired(&et)) {
+      multicast_send(mcast_net_1);
+      // multicast_send(mcast_net_2);
+      break;
+    }
+  }
+
+  PRINTF("[SIMULATION] [DONE]\n");
+
+  etimer_set(&et, 10 * CLOCK_SECOND);
+  while(1) {
+    PROCESS_YIELD();
+    if(etimer_expired(&et)) {
+      break;
+    }
+  }
+
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/

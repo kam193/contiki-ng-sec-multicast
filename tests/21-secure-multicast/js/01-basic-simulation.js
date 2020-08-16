@@ -1,0 +1,53 @@
+// Automatically fail after given time
+TIMEOUT(30000, log.testFailed());
+
+var receiver_net1 = [
+  "Joined multicast group ff1e::89:abcd",
+  "Got RP cert",
+  "Manually get cert for ff1e::89:abcd",
+  "Got: message12345678",
+];
+
+var expected_mgs = {
+  1: [
+    "Starting propagate group key for ff1e::89:abcd",
+    "Sending message to ff1e::89:abcd",
+    "[DONE]",
+  ],
+  2: receiver_net1,
+  3: receiver_net1,
+};
+var last_msg = {
+  1: 0,
+  2: 0,
+  3: 0,
+};
+
+function check_expected() {
+  if (msg.contains(expected_mgs[id][last_msg[id]])) {
+    last_msg[id] += 1;
+    return;
+  }
+
+  log.log("Fail! Expected: " + expected_mgs[id][last_msg[id]] + "\n");
+  log.testFailed();
+}
+
+function check_final() {
+  for (var mote_id in expected_mgs) {
+    if (!expected_mgs.hasOwnProperty(mote_id)) continue;
+    if (last_msg[mote_id] < expected_mgs[mote_id].length) return;
+  }
+
+  log.testOK();
+}
+
+while (true) {
+  YIELD();
+  if (msg.contains("[CRITICAL]")) log.testFailed();
+
+  if (msg.contains("[SIMULATION]") == false) continue;
+  log.log("[" + id + "] " + msg.substring(13) + "\n");
+  check_expected();
+  check_final();
+}
