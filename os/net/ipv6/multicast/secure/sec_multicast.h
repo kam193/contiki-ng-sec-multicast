@@ -22,6 +22,6 @@
 #endif
 #endif
 
-extern struct uip_mcast6_driver SEC_MULTICAST_BASE_DRIVER;
+extern const struct uip_mcast6_driver SEC_MULTICAST_BASE_DRIVER;
 
 #endif /* SEC_MULTICAST_H_ */
