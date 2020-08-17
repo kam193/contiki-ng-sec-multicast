@@ -26,7 +26,7 @@
 
 /* Start sending messages START_DELAY secs after we start so that routing can
  * converge */
-#define START_DELAY 20
+#define START_DELAY 30
 
 static struct uip_udp_conn *mcast_net_1;
 static struct uip_udp_conn *mcast_net_2;
@@ -58,16 +58,6 @@ prepare_mcast(uip_ipaddr_t *addr, struct uip_udp_conn **connection)
   *connection = udp_new(addr, UIP_HTONS(MCAST_SINK_UDP_PORT), NULL);
 }
 /*---------------------------------------------------------------------------*/
-static void
-prepare_data(void)
-{
-  uip_ip6addr(&ipaddr_net1, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xABCD);
-  uip_ip6addr_copy(&cert.group_addr, &ipaddr_net1);
-
-  uip_ip6addr(&ipaddr_net2, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xA00B);
-  uip_ip6addr_copy(&cert_2.group_addr, &ipaddr_net2);
-}
-/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(rpl_root_process, ev, data)
 {
   static struct etimer et;
@@ -76,7 +66,8 @@ PROCESS_THREAD(rpl_root_process, ev, data)
 
   PRINTF("Multicast Engine: '%s'\n", UIP_MCAST6.name);
 
-  prepare_data();
+  uip_ip6addr(&ipaddr_net1, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xABCD);
+  uip_ip6addr(&ipaddr_net2, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xA00D);
 
   FAIL_NOT_0(add_cerificate(&cert))
   FAIL_NOT_0(add_cerificate(&cert_2));
@@ -96,17 +87,17 @@ PROCESS_THREAD(rpl_root_process, ev, data)
   PRINT6ADDR(&cert.group_addr);
   PRINTF("\n");
 
-  // FAIL_NOT_0(propagate_certificate(&cert_2));
-  // PRINTF("[SIMULATION] Starting propagate group key for ");
-  // PRINT6ADDR(&cert_2.group_addr);
-  // PRINTF("\n");
+  FAIL_NOT_0(propagate_certificate(&cert_2));
+  PRINTF("[SIMULATION] Starting propagate group key for ");
+  PRINT6ADDR(&cert_2.group_addr);
+  PRINTF("\n");
 
   etimer_set(&et, START_DELAY * CLOCK_SECOND);
   while(1) {
     PROCESS_YIELD();
     if(etimer_expired(&et)) {
       multicast_send(mcast_net_1);
-      // multicast_send(mcast_net_2);
+      multicast_send(mcast_net_2);
       break;
     }
   }

@@ -92,7 +92,6 @@ PROCESS_THREAD(mcast_sink_process, ev, data)
   PROCESS_YIELD_UNTIL(etimer_expired(&periodic_timer));
   etimer_stop(&periodic_timer);
 
-  /* uip_ip6addr(&addr, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xABCD); */
   FAIL_NOT_0(get_certificate_for(&addr));
   PRINTF("[SIMULATION] Manually get cert for ");
   PRINT6ADDR(&addr);

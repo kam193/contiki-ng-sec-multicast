@@ -31,30 +31,34 @@
 
 /**
  * \file
- *         Project specific configuration defines for the RPl multicast
- *         example.
+ *         This node is part of the RPL multicast example. It basically
+ *         represents a node that does not join the multicast group
+ *         but still knows how to forward multicast packets
+ *         The example will work with or without any number of these nodes
+ *
+ *         Also, performs some sanity checks for the contiki configuration
+ *         and generates an error if the conf is bad
  *
  * \author
  *         George Oikonomou - <oikonomou@users.sourceforge.net>
  */
 
-#ifndef PROJECT_CONF_H_
-#define PROJECT_CONF_H_
+#include "contiki.h"
+#include "contiki-net.h"
+#include "net/ipv6/multicast/uip-mcast6.h"
 
-#include "net/ipv6/multicast/uip-mcast6-engines.h"
-
-/* Change this to switch engines. Engine codes in uip-mcast6-engines.h */
-#define UIP_MCAST6_CONF_ENGINE UIP_MCAST6_ENGINE_SEC
-
-#define UIP_MCAST6_ROUTE_CONF_ROUTES 1
-
-/* Code/RAM footprint savings so that things will fit on our device */
-#ifndef NETSTACK_MAX_ROUTE_ENTRIES
-#define NETSTACK_MAX_ROUTE_ENTRIES   10
+#if !NETSTACK_CONF_WITH_IPV6 || !UIP_CONF_ROUTER || !UIP_IPV6_MULTICAST || !UIP_CONF_IPV6_RPL
+#error "This example can not work with the current contiki configuration"
+#error "Check the values of: NETSTACK_CONF_WITH_IPV6, UIP_CONF_ROUTER, UIP_CONF_IPV6_RPL"
 #endif
+/*---------------------------------------------------------------------------*/
+PROCESS(mcast_intermediate_process, "Intermediate Process");
+AUTOSTART_PROCESSES(&mcast_intermediate_process);
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(mcast_intermediate_process, ev, data)
+{
+  PROCESS_BEGIN();
 
-#ifndef NBR_TABLE_CONF_MAX_NEIGHBORS
-#define NBR_TABLE_CONF_MAX_NEIGHBORS 10
-#endif
-
-#endif /* PROJECT_CONF_H_ */
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/

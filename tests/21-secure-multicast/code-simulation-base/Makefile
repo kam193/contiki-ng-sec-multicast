@@ -1,4 +1,4 @@
-CONTIKI_PROJECT = root sink
+CONTIKI_PROJECT = root sink sink_2 intermediate
 all: $(CONTIKI_PROJECT)
 
 CONTIKI = ../../..
