@@ -1,5 +1,6 @@
 /**
- * \file    Header for providing secure functions for messages
+ * \file
+ *    Header for providing secure functions for messages
  *
  *
  * \author  Kamil Mańkowski

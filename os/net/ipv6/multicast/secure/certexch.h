@@ -1,5 +1,6 @@
 /**
- * \file    Headers for Certificate Exchange
+ * \file
+ *    Headers for Certificate Exchange
  *
  *
  * \author  Kamil Mańkowski
