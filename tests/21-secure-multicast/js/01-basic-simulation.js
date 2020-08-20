@@ -1,5 +1,5 @@
 // Automatically fail after given time
-TIMEOUT(100000, log.testFailed());
+TIMEOUT(40000, log.testFailed());
 
 var receiver_net1 = [
   "Joined multicast group ff1e::89:abcd",
@@ -11,7 +11,6 @@ var receiver_net1 = [
 var receiver_net2 = [
   "Joined multicast group ff1e::89:a00d",
   "Got RP cert",
-  "Manually get cert for ff1e::89:a00d",
   "Got: message12345678",
 ];
 
@@ -50,15 +49,18 @@ function check_final() {
     if (last_msg[mote_id] < expected_mgs[mote_id].length) return;
   }
 
-  log.testOK();
+  // log.testOK();
+  log.log("Finished\n");
+  log.testFailed();
 }
 
 while (true) {
   YIELD();
+  log.log("[" + id + "] " + msg + "\n");
   if (msg.contains("[CRITICAL]")) log.testFailed();
 
   if (msg.contains("[SIMULATION]") == false) continue;
-  log.log("[" + id + "] " + msg.substring(13) + "\n");
+  // log.log("[" + id + "] " + msg.substring(13) + "\n");
   check_expected();
   check_final();
 }

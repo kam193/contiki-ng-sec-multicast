@@ -57,4 +57,6 @@
 #define NBR_TABLE_CONF_MAX_NEIGHBORS 10
 #endif
 
+// #define LOG_CONF_LEVEL_IPV6 LOG_LEVEL_WARN
+
 #endif /* PROJECT_CONF_H_ */

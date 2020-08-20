@@ -35,6 +35,29 @@ uint32_t return_code = 0;
 
 static uint8_t buffer[1000];
 
+extern uint16_t uip_slen;
+
+static uint8_t out_queue[2000];
+static uint16_t out_slen = 0;
+struct uip_udp_conn *out_con;
+
+struct waiting_in {
+  clock_time_t time_cached;
+  uint16_t len;
+  uint8_t data[UIP_BUFSIZE];
+};
+typedef struct waiting_in waiting_in_t;
+
+static waiting_in_t in_queue[SEC_MAX_QUEUE_SIZE];
+#define IN_QUEUE_ADDR(i) ((struct uip_ip_hdr *)(&in_queue[i].data))->destipaddr
+
+static struct etimer timeout;
+uip_ip6addr_t expected;
+
+#define NEW_KEY_EVENT 0x61
+
+PROCESS(secure_engine, "Secure engine");
+
 /*---------------------------------------------------------------------------*/
 /* CERTIFICATE EXCHANGE                                                      */
 /*---------------------------------------------------------------------------*/
@@ -85,11 +108,6 @@ decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t
   default:
     break;
   }
-
-  // if(decoded != size) {
-  //   PRINTF("Invalid decoding. Size %u vs. decoded %u\n", size, decoded);
-  //   return -2;
-  // }
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -105,7 +123,6 @@ rp_public_cert_answer_handler(const uip_ipaddr_t *sender_addr,
   }
   uint16_t cert_len = (uint16_t)(data[1]);
   PRINTF("Pub len %d\n", cert_len);
-  print_hex(datalen, data);
   if(certexch_decode_cert(&tmp, data + 2, (uint16_t)(data[1])) != 0) {
     PRINTF("RP PUB decode error\n");
 
@@ -128,13 +145,11 @@ ce_answer_handler(const uip_ipaddr_t *sender_addr,
                   uint16_t datalen)
 {
   /* TODO: allocate and free temporary cert */
-  print_hex(datalen, data);
   uint32_t out_size = sizeof(buffer);
-  if(certexch_decode_data(buffer, &out_size, data+1, datalen-1, certexch_rp_pub_cert()) != 0){
+  if(certexch_decode_data(buffer, &out_size, data + 1, datalen - 1, certexch_rp_pub_cert()) != 0) {
     PRINTF("Decrypting answer failed\n");
     return;
   }
-  print_hex(out_size, buffer);
   struct sec_certificate cert;
   if(decode_bytes_to_cert(&cert, buffer, out_size) != 0) {
     PRINTF("Decoding cert fails.\n");
@@ -180,27 +195,66 @@ cert_exchange_init()
 
   simple_udp_register(&certexch_conn, CERT_ANSWER_PORT, NULL,
                       RP_CERT_SERVER_PORT, cert_exchange_answer_callback);
+  process_start(&secure_engine, NULL);
   certexch_initialized = true;
 }
+int
+add_to_out_queue()
+{
+  cert_exchange_init();
+  memcpy(out_queue, &uip_buf[UIP_IPUDPH_LEN], uip_slen);
+  out_con = uip_udp_conn;
+  out_slen = uip_slen;
+  PROCESS_CONTEXT_BEGIN(PROCESS_CURRENT());
+  process_post_synch(&secure_engine, 0x66, NULL);
+  PROCESS_CONTEXT_END(PROCESS_CURRENT());
+  return 0;
+}
+int
+queue_in_packet()
+{
+  cert_exchange_init();
+  int i = 0;
+  for(; i < SEC_MAX_QUEUE_SIZE; ++i) {
+    if(in_queue[i].len == 0) {
+      memcpy(in_queue[i].data, &uip_buf, uip_len);
+      in_queue[i].len = uip_len;
+      in_queue[i].time_cached = clock_time();
+      return 0;
+    }
+  }
+  PRINTF("No empty place in IN queue. Packet dropped.\n");
+  return -1;
+}
+/* int queue_out_packent(); */
+
+/* int */
+/* wait_fot_group_key(uip_ip6addr_t *mcast_addr) */
+/* { */
+/*   PROCESS_CONTEXT_BEGIN(PROCESS_CURRENT()); */
+/*   process_post_synch(&secure_engine, 0x66, mcast_addr); */
+/*   PROCESS_CONTEXT_END(PROCESS_CURRENT()); */
+/*   return 0; */
+/* } */
 int
 get_certificate_for(uip_ip6addr_t *mcast_addr)
 {
   /* Message format: TYPE | CERT_LEN | TIMESTAMP[2] | ADDR[16] | *PUB_CERT */
   /* TODO: Retry and timeout */
   cert_exchange_init();
-  
+
   buffer[0] = CERT_EXCHANGE_REQUEST;
-  
+
   /* Type & cert len are not padded, timestamp+addr -> encrypted and padded */
   uint32_t padded_size = certexch_count_padding(2 + sizeof(uip_ip6addr_t));
   uint8_t *tmp = malloc(padded_size);
-  
+
   memcpy((tmp + 2), mcast_addr, sizeof(uip_ip6addr_t));
   /* TODO: Padding should be random! */
   memset(tmp + 2 + sizeof(uip_ip6addr_t), 0, padded_size - 2 - sizeof(uip_ip6addr_t));
 
   uint32_t size = sizeof(buffer) - padded_size;
-  if(certexch_encode_data(buffer+2, &size, tmp, padded_size, certexch_rp_pub_cert()) != 0){
+  if(certexch_encode_data(buffer + 2, &size, tmp, padded_size, certexch_rp_pub_cert()) != 0) {
     PRINTF("Encoding error\n");
     return -1;
   }
@@ -220,6 +274,8 @@ get_certificate_for(uip_ip6addr_t *mcast_addr)
   PRINTF("CertExch: Send request for %d ", size);
   PRINT6ADDR(mcast_addr);
   PRINTF("\n");
+
+  /* wait_fot_group_key(mcast_addr); */
   return 0;
 }
 int
@@ -414,6 +470,8 @@ add_cerificate(struct sec_certificate *certificate)
   PRINT6ADDR(&certificate->group_addr);
   PRINTF(" is set\n");
 
+  process_post(&secure_engine, NEW_KEY_EVENT, &certificate->group_addr);
+
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -445,7 +503,7 @@ decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t messa
   /* TODO: Data need to be aligned! */
   struct sec_certificate *cert;
   if((cert = get_certificate(dest_addr)) == NULL) {
-    return -1;
+    return ERR_GROUP_NOT_KNOWN;
   }
 
   switch(cert->mode) {
@@ -457,4 +515,57 @@ decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t messa
   default:
     return -1;
   }
+}
+static void
+process_new_key_queue_in(uip_ip6addr_t *group)
+{
+  for(int i = 0; i < SEC_MAX_QUEUE_SIZE; ++i) {
+    if(in_queue[i].len != 0 && uip_ipaddr_cmp(group, &IN_QUEUE_ADDR(i))) {
+      memcpy(&uip_buf, in_queue[i].data, in_queue[i].len);
+      uip_len = in_queue[i].len;
+      PRINTF("Delivery queued packet. Time waiting: %d\n", clock_time() - in_queue[i].time_cached);
+      uip_process(UIP_DATA);
+      in_queue[i].len = 0;
+    }
+  }
+}
+PROCESS_THREAD(secure_engine, ev, data)
+{
+  PROCESS_BEGIN();
+  while(1) {
+    PROCESS_WAIT_EVENT();
+    if(ev == NEW_KEY_EVENT) {
+      process_new_key_queue_in(data);
+      /* TODO: also for out packages */
+    }
+
+    if(ev == 0x66) {
+      PRINTF("Start caching packet! \n");
+      etimer_set(&timeout, 2000);
+
+      PROCESS_WAIT_UNTIL(etimer_expired(&timeout));
+      PRINTF("I have cached packet for ");
+      PRINT6ADDR(&out_con->ripaddr);
+      PRINTF("\n");
+
+      uip_udp_packet_send(out_con, &out_queue, out_slen);
+      /* NOW SEND CACHED */
+    } else if(ev == 0x67) {
+      /* PRINTF("Start caching packet! \n"); */
+      /* etimer_set(&timeout, 200); */
+
+      /* PROCESS_WAIT_UNTIL(etimer_expired(&timeout)); */
+      /* PRINTF("I have cached IN packet for "); */
+      /* PRINT6ADDR(&((struct uip_ip_hdr *)in_queue)->destipaddr); */
+      /* PRINTF("\n"); */
+
+      /* memcpy(uip_buf, in_queue, in_slen); */
+      /* uip_len = in_slen; */
+      /* uip_process(UIP_DATA); */
+
+      /* NOW SEND CACHED */
+    }
+  }
+
+  PROCESS_END();
 }

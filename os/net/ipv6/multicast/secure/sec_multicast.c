@@ -66,13 +66,20 @@ in()
 
   if(decision == UIP_MCAST6_ACCEPT) {
     data_len = sizeof(buffer);
-    if((ret = decrypt_message(&UIP_IP_BUF->destipaddr, &uip_buf[UIP_IPUDPH_LEN], uip_len - UIP_IPUDPH_LEN, buffer, &data_len)) == 0) {
+    ret = decrypt_message(&UIP_IP_BUF->destipaddr, &uip_buf[UIP_IPUDPH_LEN], uip_len - UIP_IPUDPH_LEN, buffer, &data_len);
+
+    if(ret == 0) {
       memcpy(&uip_buf[UIP_IPUDPH_LEN], buffer, data_len);
       uip_slen = data_len;
       uip_len = UIP_IPUDPH_LEN + data_len;
       uipbuf_set_len_field(UIP_IP_BUF, uip_len - UIP_IPH_LEN);
       UIP_UDP_BUF->udplen = UIP_HTONS(data_len + UIP_UDPH_LEN);
       /* TODO: checksum */
+    } else if(ret == ERR_GROUP_NOT_KNOWN) {
+      PRINTF("Cert needed. Cache and request\n");
+      queue_in_packet();
+      get_certificate_for(&UIP_IP_BUF->destipaddr);
+      return UIP_MCAST6_DROP;
     } else {
       PRINTF("Decryption failed (%d).\n", ret);
     }

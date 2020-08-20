@@ -21,6 +21,15 @@
 #define SEC_MAX_GROUP_DESCRIPTORS 3
 #endif
 
+#ifndef SEC_MAX_QUEUE_SIZE
+#define SEC_MAX_QUEUE_SIZE 5
+#endif
+
+/* How long packet can wait for group key */
+#ifndef SEC_QUEUE_TIMEOUT
+#define SEC_QUEUE_TIMEOUT 2000
+#endif
+
 /* Encoding types */
 
 #define SEC_MODE_NONE         0 /* TODO: implement */
@@ -87,6 +96,9 @@ struct rsa_private_descriptor {
 /* Functions */
 
 int add_cerificate(struct sec_certificate *certificate);
+
+#define ERR_GROUP_NOT_KNOWN   1
+#define ERR_NEED_REFRESH_CERT 2
 int encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len);
 int decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len);
 
@@ -94,6 +106,10 @@ int decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t m
 
 int get_certificate_for(uip_ip6addr_t *mcast_addr);
 int get_rp_cert();
+
+/* API for storing data in queues */
+int add_to_out_queue();
+int queue_in_packet();
 
 /* Helper functions */
 

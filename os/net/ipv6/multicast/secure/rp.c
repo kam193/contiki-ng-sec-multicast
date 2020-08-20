@@ -108,7 +108,6 @@ rp_public_cert_request_handler(const uip_ipaddr_t *sender_addr,
     return;
   }
   buffer[1] = out_size;
-  print_hex(out_size + 2, buffer);
   PRINTF("CertExch: Sending RP pub answer to ");
   PRINT6ADDR(sender_addr);
   PRINTF("\n");
@@ -127,8 +126,6 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
     PRINTF("CertExch: Invalid message, skipped\n");
     return;
   }
-
-  print_hex(datalen, data);
 
   uint8_t cert_len = data[1];
   if(certexch_decode_cert(&client_cert, data + (datalen - cert_len), cert_len) != 0) {
