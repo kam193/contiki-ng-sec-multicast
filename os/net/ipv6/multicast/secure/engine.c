@@ -37,23 +37,32 @@ static uint8_t buffer[1000];
 
 extern uint16_t uip_slen;
 
-static uint8_t out_queue[2000];
-static uint16_t out_slen = 0;
-struct uip_udp_conn *out_con;
+struct waiting_out {
+  clock_time_t time_cached;
+  uint16_t slen;
+  uint8_t retry_count;
+  uint8_t data[UIP_BUFSIZE - UIP_IPUDPH_LEN];
+  struct uip_udp_conn *conn;
+};
+typedef struct waiting_out waiting_out_t;
+
+static waiting_out_t out_queue[SEC_MAX_QUEUE_SIZE];
+static uint16_t out_queue_free = SEC_MAX_QUEUE_SIZE;
 
 struct waiting_in {
   clock_time_t time_cached;
   uint16_t len;
+  uint8_t retry_count;
   uint8_t data[UIP_BUFSIZE];
 };
 typedef struct waiting_in waiting_in_t;
 
 static waiting_in_t in_queue[SEC_MAX_QUEUE_SIZE];
+static uint16_t in_queue_free = SEC_MAX_QUEUE_SIZE;
 #define IN_QUEUE_ADDR(i) ((struct uip_ip_hdr *)(&in_queue[i].data))->destipaddr
 
-static struct etimer timeout;
+static struct etimer queue_timeout;
 uip_ip6addr_t expected;
-
 #define NEW_KEY_EVENT 0x61
 
 PROCESS(secure_engine, "Secure engine");
@@ -121,8 +130,6 @@ rp_public_cert_answer_handler(const uip_ipaddr_t *sender_addr,
   if(datalen < 3) {
     return;
   }
-  uint16_t cert_len = (uint16_t)(data[1]);
-  PRINTF("Pub len %d\n", cert_len);
   if(certexch_decode_cert(&tmp, data + 2, (uint16_t)(data[1])) != 0) {
     PRINTF("RP PUB decode error\n");
 
@@ -198,49 +205,46 @@ cert_exchange_init()
   process_start(&secure_engine, NULL);
   certexch_initialized = true;
 }
+/* Cache OUT packet and wait for group key */
 int
-add_to_out_queue()
+cache_out_packet()
 {
   cert_exchange_init();
-  memcpy(out_queue, &uip_buf[UIP_IPUDPH_LEN], uip_slen);
-  out_con = uip_udp_conn;
-  out_slen = uip_slen;
-  PROCESS_CONTEXT_BEGIN(PROCESS_CURRENT());
-  process_post_synch(&secure_engine, 0x66, NULL);
-  PROCESS_CONTEXT_END(PROCESS_CURRENT());
-  return 0;
+  for(size_t i = 0; i < SEC_MAX_QUEUE_SIZE; ++i) {
+    if(out_queue[i].slen == 0) {
+      memcpy(out_queue[i].data, &uip_buf[UIP_IPUDPH_LEN], uip_slen);
+      out_queue[i].conn = uip_udp_conn;
+      out_queue[i].slen = uip_slen;
+      out_queue[i].time_cached = clock_time();
+      out_queue[i].retry_count = 0;
+      out_queue_free--;
+      return 0;
+    }
+  }
+  return ERR_LIMIT_EXCEEDED;
 }
+/* Cache IN packet and wait for group key */
 int
 queue_in_packet()
 {
   cert_exchange_init();
-  int i = 0;
+  size_t i = 0;
   for(; i < SEC_MAX_QUEUE_SIZE; ++i) {
     if(in_queue[i].len == 0) {
       memcpy(in_queue[i].data, &uip_buf, uip_len);
       in_queue[i].len = uip_len;
       in_queue[i].time_cached = clock_time();
+      in_queue[i].retry_count = 0;
+      in_queue_free--;
       return 0;
     }
   }
-  PRINTF("No empty place in IN queue. Packet dropped.\n");
-  return -1;
+  return ERR_LIMIT_EXCEEDED;
 }
-/* int queue_out_packent(); */
-
-/* int */
-/* wait_fot_group_key(uip_ip6addr_t *mcast_addr) */
-/* { */
-/*   PROCESS_CONTEXT_BEGIN(PROCESS_CURRENT()); */
-/*   process_post_synch(&secure_engine, 0x66, mcast_addr); */
-/*   PROCESS_CONTEXT_END(PROCESS_CURRENT()); */
-/*   return 0; */
-/* } */
 int
 get_certificate_for(uip_ip6addr_t *mcast_addr)
 {
   /* Message format: TYPE | CERT_LEN | TIMESTAMP[2] | ADDR[16] | *PUB_CERT */
-  /* TODO: Retry and timeout */
   cert_exchange_init();
 
   buffer[0] = CERT_EXCHANGE_REQUEST;
@@ -275,7 +279,6 @@ get_certificate_for(uip_ip6addr_t *mcast_addr)
   PRINT6ADDR(mcast_addr);
   PRINTF("\n");
 
-  /* wait_fot_group_key(mcast_addr); */
   return 0;
 }
 int
@@ -482,7 +485,7 @@ encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t messa
   /* TODO: Data need to be aligned! */
   struct sec_certificate *cert;
   if((cert = get_certificate(dest_addr)) == NULL) {
-    return -1;
+    return ERR_GROUP_NOT_KNOWN;
   }
 
   switch(cert->mode) {
@@ -516,54 +519,142 @@ decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t messa
     return -1;
   }
 }
+/*---------------------------------------------------------------------------*/
+/* MANAGING QUEUE */
+/*---------------------------------------------------------------------------*/
+
+/* Delivery queued IN packet to upper layers */
+static void
+delivery_in_packet(size_t i)
+{
+  memcpy(&uip_buf, in_queue[i].data, in_queue[i].len);
+  uip_len = in_queue[i].len;
+  PRINTF("Delivery queued packet. Time waiting: %d\n", clock_time() - in_queue[i].time_cached);
+  uip_process(UIP_DATA);
+  in_queue[i].len = 0;
+  in_queue_free += 1;
+}
+/* New group key was delivered - check if can process packets from IN queue */
 static void
 process_new_key_queue_in(uip_ip6addr_t *group)
 {
-  for(int i = 0; i < SEC_MAX_QUEUE_SIZE; ++i) {
+  if(in_queue_free == SEC_MAX_QUEUE_SIZE) {
+    return;
+  }
+  for(size_t i = 0; i < SEC_MAX_QUEUE_SIZE; ++i) {
     if(in_queue[i].len != 0 && uip_ipaddr_cmp(group, &IN_QUEUE_ADDR(i))) {
-      memcpy(&uip_buf, in_queue[i].data, in_queue[i].len);
-      uip_len = in_queue[i].len;
-      PRINTF("Delivery queued packet. Time waiting: %d\n", clock_time() - in_queue[i].time_cached);
-      uip_process(UIP_DATA);
-      in_queue[i].len = 0;
+      delivery_in_packet(i);
+    }
+  }
+}
+/* Time to retry. Re-request key and remove timeouted packets, IN queue */
+static void
+retry_on_queue_in()
+{
+  if(in_queue_free == SEC_MAX_QUEUE_SIZE) {
+    return;
+  }
+
+  time_t time_diff;
+  for(size_t i = 0; i < SEC_MAX_QUEUE_SIZE; ++i) {
+    if(in_queue[i].len == 0) {
+      continue;
+    }
+    time_diff = clock_time() - in_queue[i].time_cached;
+    if(time_diff >= (in_queue[i].retry_count + 1) * SEC_QUEUE_RETRY_TIME) {
+      if(get_certificate(&IN_QUEUE_ADDR(i)) != NULL) {
+        delivery_in_packet(i);
+      } else if(in_queue[i].retry_count >= SEC_QUEUE_MAX_RETRY) {
+        PRINTF("IN packet timeouted after %d. Dropped\n", time_diff);
+        in_queue[i].len = 0;
+        in_queue_free++;
+      } else {
+        in_queue[i].retry_count++;
+        PRINTF("Retry request (attempt %d) group key for ", in_queue[i].retry_count);
+        PRINT6ADDR(&IN_QUEUE_ADDR(i));
+        PRINTF("\n");
+        get_certificate_for(&IN_QUEUE_ADDR(i));
+      }
+    }
+  }
+}
+/* Send queued OUT packet to the network */
+static void
+delivery_out_packet(size_t i)
+{
+  uip_udp_packet_send(out_queue[i].conn, out_queue[i].data, out_queue[i].slen);
+  PRINTF("Send queued packet. Time waiting: %d\n", clock_time() - out_queue[i].time_cached);
+  out_queue[i].slen = 0;
+  out_queue_free++;
+}
+/* New group key delivered - check if can send packets from OUT queue */
+static void
+process_new_key_queue_out(uip_ip6addr_t *group)
+{
+  if(out_queue_free == SEC_MAX_QUEUE_SIZE) {
+    return;
+  }
+  for(size_t i = 0; i < SEC_MAX_QUEUE_SIZE; ++i) {
+    if(out_queue[i].slen != 0 && uip_ip6addr_cmp(group, &out_queue[i].conn->ripaddr)) {
+      delivery_out_packet(i);
+    }
+  }
+}
+/* Time to retry. Re-request group key for OUT cached packets and clean up timeouted */
+static void
+retry_on_queue_out()
+{
+  if(out_queue_free == SEC_MAX_QUEUE_SIZE) {
+    return;
+  }
+  time_t time_diff;
+  for(size_t i = 0; i < SEC_MAX_QUEUE_SIZE; ++i) {
+    if(out_queue[i].slen == 0) {
+      continue;
+    }
+    time_diff = clock_time() - out_queue[i].time_cached;
+    if(time_diff >= (out_queue[i].retry_count + 1) * SEC_QUEUE_RETRY_TIME) {
+      if(get_certificate(&out_queue[i].conn->ripaddr) != NULL) {
+        delivery_out_packet(i);
+      } else if(out_queue[i].retry_count >= SEC_QUEUE_MAX_RETRY) {
+        PRINTF("OUT packet timeouted after %d. Dropped\n", time_diff);
+        out_queue[i].slen = 0;
+        out_queue_free++;
+      } else {
+        out_queue[i].retry_count++;
+        PRINTF("Retry request (attempt %d) group key for ", out_queue[i].retry_count);
+        PRINT6ADDR(&out_queue[i].conn->ripaddr);
+        PRINTF("\n");
+        get_certificate_for(&out_queue[i].conn->ripaddr);
+      }
     }
   }
 }
 PROCESS_THREAD(secure_engine, ev, data)
 {
   PROCESS_BEGIN();
+  /* TODO: close handler - free resources */
+
+  etimer_set(&queue_timeout, SEC_QUEUE_RETRY_TIME);
+
   while(1) {
     PROCESS_WAIT_EVENT();
-    if(ev == NEW_KEY_EVENT) {
+    switch(ev) {
+    case NEW_KEY_EVENT:
       process_new_key_queue_in(data);
-      /* TODO: also for out packages */
-    }
+      process_new_key_queue_out(data);
+      break;
 
-    if(ev == 0x66) {
-      PRINTF("Start caching packet! \n");
-      etimer_set(&timeout, 2000);
+    case PROCESS_EVENT_TIMER:
+      if(data == &queue_timeout) {
+        retry_on_queue_in();
+        retry_on_queue_out();
+        etimer_set(&queue_timeout, SEC_QUEUE_RETRY_TIME);
+      }
+      break;
 
-      PROCESS_WAIT_UNTIL(etimer_expired(&timeout));
-      PRINTF("I have cached packet for ");
-      PRINT6ADDR(&out_con->ripaddr);
-      PRINTF("\n");
-
-      uip_udp_packet_send(out_con, &out_queue, out_slen);
-      /* NOW SEND CACHED */
-    } else if(ev == 0x67) {
-      /* PRINTF("Start caching packet! \n"); */
-      /* etimer_set(&timeout, 200); */
-
-      /* PROCESS_WAIT_UNTIL(etimer_expired(&timeout)); */
-      /* PRINTF("I have cached IN packet for "); */
-      /* PRINT6ADDR(&((struct uip_ip_hdr *)in_queue)->destipaddr); */
-      /* PRINTF("\n"); */
-
-      /* memcpy(uip_buf, in_queue, in_slen); */
-      /* uip_len = in_slen; */
-      /* uip_process(UIP_DATA); */
-
-      /* NOW SEND CACHED */
+    default:
+      break;
     }
   }
 

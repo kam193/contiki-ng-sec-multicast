@@ -36,11 +36,12 @@ static void
 out(void)
 {
   uint32_t data_len;
+  int ret;
 
   memset(buffer, 0, sizeof(buffer));
   data_len = sizeof(buffer);
-
-  if(encrypt_message(&UIP_IP_BUF->destipaddr, &(uip_buf[UIP_IPUDPH_LEN]), uip_len - UIP_IPUDPH_LEN, buffer, &data_len) == 0) {
+  ret = encrypt_message(&UIP_IP_BUF->destipaddr, &(uip_buf[UIP_IPUDPH_LEN]), uip_len - UIP_IPUDPH_LEN, buffer, &data_len);
+  if(ret == 0) {
     /* Updata packet and length -> TODO: safe (check size) */
     memcpy(&uip_buf[UIP_IPUDPH_LEN], buffer, data_len);
     uip_slen = data_len;
@@ -48,6 +49,16 @@ out(void)
     uipbuf_set_len_field(UIP_IP_BUF, uip_len - UIP_IPH_LEN);
     UIP_UDP_BUF->udplen = UIP_HTONS(data_len + UIP_UDPH_LEN);
     /* TODO: checksum */
+  } else if(ret == ERR_GROUP_NOT_KNOWN) {
+    PRINTF("Cert for out packet needed. Caching.\n");
+    if(cache_out_packet() == ERR_LIMIT_EXCEEDED) {
+      PRINTF("Waiting queue limit exceeded, packet dropped\n");
+    } else {
+      get_certificate_for(&UIP_IP_BUF->destipaddr);
+      uip_slen = 0;
+      uipbuf_clear();
+      return;
+    }
   } else {
     PRINTF("Encryption failed.\n");
   }
@@ -77,8 +88,11 @@ in()
       /* TODO: checksum */
     } else if(ret == ERR_GROUP_NOT_KNOWN) {
       PRINTF("Cert needed. Cache and request\n");
-      queue_in_packet();
-      get_certificate_for(&UIP_IP_BUF->destipaddr);
+      if(queue_in_packet() == ERR_LIMIT_EXCEEDED) {
+        PRINTF("Waiting IN queue limit exceeded, packet dropped\n");
+      } else {
+        get_certificate_for(&UIP_IP_BUF->destipaddr);
+      }
       return UIP_MCAST6_DROP;
     } else {
       PRINTF("Decryption failed (%d).\n", ret);

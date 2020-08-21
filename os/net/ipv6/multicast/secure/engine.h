@@ -25,9 +25,13 @@
 #define SEC_MAX_QUEUE_SIZE 5
 #endif
 
-/* How long packet can wait for group key */
-#ifndef SEC_QUEUE_TIMEOUT
-#define SEC_QUEUE_TIMEOUT 2000
+/* When retry get cert */
+#ifndef SEC_QUEUE_RETRY_TIME
+#define SEC_QUEUE_RETRY_TIME 300
+#endif
+
+#ifndef SEC_QUEUE_MAX_RETRY
+#define SEC_QUEUE_MAX_RETRY 3
 #endif
 
 /* Encoding types */
@@ -99,6 +103,7 @@ int add_cerificate(struct sec_certificate *certificate);
 
 #define ERR_GROUP_NOT_KNOWN   1
 #define ERR_NEED_REFRESH_CERT 2
+#define ERR_LIMIT_EXCEEDED    3
 int encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len);
 int decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len);
 
@@ -108,7 +113,7 @@ int get_certificate_for(uip_ip6addr_t *mcast_addr);
 int get_rp_cert();
 
 /* API for storing data in queues */
-int add_to_out_queue();
+int cache_out_packet();
 int queue_in_packet();
 
 /* Helper functions */
