@@ -38,8 +38,6 @@ secured_group_t groups[SEC_MAX_SECURED_GROUPS];
 static size_t free_group_places = SEC_MAX_SECURED_GROUPS;
 
 static struct simple_udp_connection cert_exch;
-static struct sec_certificate propagated_certs[CERTEXCH_MAX_PROPAGATED_CERTS];
-static uint32_t first_free = 0;
 static uint8_t buffer[MAX_ANSWER_LENGTH];
 static uint8_t second_buffer[MAX_ANSWER_LENGTH];
 
@@ -68,9 +66,7 @@ recreate_group_key(secured_group_t *group_descriptor)
 {
   switch(group_descriptor->key_descriptor.mode) {
   case SEC_MODE_AES_CBC:
-    if(recreate_aes_cbc_key(group_descriptor) != 0) {
-      return ERR_OTHER;
-    }
+    CHECK_0(recreate_aes_cbc_key(group_descriptor));
     break;
 
   default:
@@ -84,15 +80,38 @@ recreate_group_key(secured_group_t *group_descriptor)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-static struct sec_certificate *
-find_certificate(uip_ip6addr_t *addr)
+secured_group_t *
+find_group_descriptor(const uip_ip6addr_t *addr)
 {
-  for(uint32_t i = 0; i < first_free; ++i) {
-    if(uip_ip6addr_cmp(&propagated_certs[i].group_addr, addr)) {
-      return &propagated_certs[i];
+  if(free_group_places == SEC_MAX_SECURED_GROUPS) {
+    return NULL;
+  }
+  for(size_t i = 0; i < SEC_MAX_SECURED_GROUPS; ++i) {
+    if(groups[i].occupied == true && uip_ip6addr_cmp(addr, &groups[i].key_descriptor.group_addr)) {
+      return &groups[i];
     }
   }
   return NULL;
+}
+/*---------------------------------------------------------------------------*/
+/* Get current secure descriptor of the group, ready to use */
+int
+get_group_secure_description(const uip_ipaddr_t *group_addr, struct sec_certificate **cert_ptr)
+{
+  secured_group_t *descriptor;
+  if((descriptor = find_group_descriptor(group_addr)) == NULL) {
+    /* TODO: default behaviour */
+    *cert_ptr = NULL;
+    return ERR_OTHER;
+  }
+
+  if(descriptor->last_refresh_sec == 0 ||
+     clock_seconds() - descriptor->last_refresh_sec >= descriptor->refresh_period_sec) {
+    CHECK_0(recreate_group_key(descriptor));
+  }
+
+  *cert_ptr = &descriptor->key_descriptor;
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
 /* Decode cert to chain of byte: ADDR | MODE | FLAGS | <descriptor> */
@@ -208,8 +227,7 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
   PRINT6ADDR(&mcast_addr);
   PRINTF("\n");
 
-  cert = find_certificate(&mcast_addr);
-  if(cert == NULL) {
+  if(get_group_secure_description(&mcast_addr, &cert) != 0) {
     PRINTF("CertExch: Requested cert not found\n");
     return;
   }
@@ -275,22 +293,6 @@ init_cert_server()
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-int
-propagate_certificate(struct sec_certificate *cert)
-{
-  /* TODO: check if cert for given addr not exists yet */
-  if(first_free >= CERTEXCH_MAX_PROPAGATED_CERTS) {
-    return -1;
-  }
-  if(copy_certificate(&propagated_certs[first_free++], cert) != 0) {
-    PRINTF("CertExch: cannot copy cert for propagation\n");
-  }
-  PRINTF("CertExch: Propagate cert for ");
-  PRINT6ADDR(&cert->group_addr);
-  PRINTF("\n");
-  return 0;
-}
-/*---------------------------------------------------------------------------*/
 /* KEY DESCRIPTORS INITIALIZERS */
 /*---------------------------------------------------------------------------*/
 static int
@@ -302,19 +304,6 @@ init_aes_cbc_descriptor(struct sec_certificate *descriptor)
     return ERR_OTHER;
   }
   return 0;
-}
-secured_group_t *
-find_group_descriptor(uip_ip6addr_t *addr)
-{
-  if(free_group_places == SEC_MAX_SECURED_GROUPS) {
-    return NULL;
-  }
-  for(size_t i = 0; i < SEC_MAX_SECURED_GROUPS; ++i) {
-    if(groups[i].occupied == true && uip_ip6addr_cmp(addr, &groups[i].key_descriptor.group_addr)) {
-      return &groups[i];
-    }
-  }
-  return NULL;
 }
 /* Create key descriptor for group */
 int
@@ -352,7 +341,6 @@ secure_group(uip_ip6addr_t *maddr, uint16_t mode, uint16_t key_refresh_period)
     groups[i].last_refresh_sec = 0;
     groups[i].refresh_period_sec = key_refresh_period;
     init_key_descriptor(&groups[i].key_descriptor, maddr, mode);
-    recreate_group_key(&groups[i]); /* TODO: Not need to create here */
     PRINTF("Now secure group ");
     PRINT6ADDR(maddr);
     PRINTF("\n");

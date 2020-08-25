@@ -20,8 +20,8 @@
 #endif
 
 int init_cert_server();
-int propagate_certificate(struct sec_certificate *cert);
 int secure_group(uip_ip6addr_t *maddr, uint16_t mode, uint16_t key_refresh_period);
-/* TODO: stop propagating */
+int get_group_secure_description(const uip_ipaddr_t *group_addr, struct sec_certificate **cert_ptr);
+/* TODO: rewrite / stop secured group */
 
 #endif

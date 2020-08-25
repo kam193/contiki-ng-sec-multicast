@@ -1,5 +1,5 @@
 // Automatically fail after given time
-TIMEOUT(40000, log.testFailed());
+TIMEOUT(400000, log.testFailed());
 
 var receiver_net1 = [
   "Joined multicast group ff1e::89:abcd",
@@ -17,8 +17,6 @@ var receiver_net2 = [
 
 var expected_mgs = {
   1: [
-    "Starting propagate group key for ff1e::89:abcd",
-    "Starting propagate group key for ff1e::89:a00d",
     "Sending message to ff1e::89:abcd",
     "Sending message to ff1e::89:a00d",
     "Sending message to ff1e::89:abcd",

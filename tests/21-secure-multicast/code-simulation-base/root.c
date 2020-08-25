@@ -70,14 +70,11 @@ PROCESS_THREAD(rpl_root_process, ev, data)
   uip_ip6addr(&ipaddr_net1, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xABCD);
   uip_ip6addr(&ipaddr_net2, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xA00D);
 
-  FAIL_NOT_0(secure_group(&ipaddr_net1, SEC_MODE_AES_CBC, 120));
-  FAIL_NOT_0(secure_group(&ipaddr_net2, SEC_MODE_AES_CBC, 120));
-  if(secure_group(&ipaddr_net2, SEC_MODE_AES_CBC, 120) != ERR_GROUP_EXISTS) {
+  FAIL_NOT_0(secure_group(&ipaddr_net1, SEC_MODE_AES_CBC, 5));
+  FAIL_NOT_0(secure_group(&ipaddr_net2, SEC_MODE_AES_CBC, 5));
+  if(secure_group(&ipaddr_net2, SEC_MODE_AES_CBC, 5) != ERR_GROUP_EXISTS) {
     FAIL();
   }
-
-  FAIL_NOT_0(add_cerificate(&cert))
-  FAIL_NOT_0(add_cerificate(&cert_2));
 
   FAIL_NOT_0(certexch_import_ca_key(&ca));
   FAIL_NOT_0(certexch_import_own_cert(&rp_private_cert));
@@ -89,23 +86,13 @@ PROCESS_THREAD(rpl_root_process, ev, data)
 
   FAIL_NOT_0(init_cert_server());
 
-  FAIL_NOT_0(propagate_certificate(&cert));
-  PRINTF("[SIMULATION] Starting propagate group key for ");
-  PRINT6ADDR(&cert.group_addr);
-  PRINTF("\n");
-
-  FAIL_NOT_0(propagate_certificate(&cert_2));
-  PRINTF("[SIMULATION] Starting propagate group key for ");
-  PRINT6ADDR(&cert_2.group_addr);
-  PRINTF("\n");
-
   etimer_set(&et, START_DELAY * CLOCK_SECOND);
   while(1) {
     PROCESS_YIELD();
     if(etimer_expired(&et)) {
       multicast_send(mcast_net_1);
       multicast_send(mcast_net_2);
-      etimer_set(&et, 3 * CLOCK_SECOND);
+      etimer_set(&et, 10 * CLOCK_SECOND);
       PROCESS_YIELD_UNTIL(etimer_expired(&et));
       multicast_send(mcast_net_1);
       multicast_send(mcast_net_2);
@@ -118,9 +105,9 @@ PROCESS_THREAD(rpl_root_process, ev, data)
   etimer_set(&et, 10 * CLOCK_SECOND);
   while(1) {
     PROCESS_YIELD();
-    if(etimer_expired(&et)) {
-      break;
-    }
+    // if(etimer_expired(&et)) {
+    //   break;
+    // }
   }
 
   PROCESS_END();

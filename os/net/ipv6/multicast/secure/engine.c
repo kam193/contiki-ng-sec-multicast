@@ -13,6 +13,7 @@
 #include "net/ipv6/multicast/secure/sec_multicast.h"
 #include "net/packetbuf.h"
 #include "net/routing/rpl-classic/rpl.h"
+#include "net/routing/routing.h"
 
 #include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/aes.h>
@@ -22,8 +23,10 @@
 #include "net/ipv6/uip-debug.h"
 #include "tmp_debug.h"
 
+#include "common.h"
 #include "engine.h"
 #include "certexch.h"
+#include "rp.h"
 
 static struct simple_udp_connection certexch_conn;
 static bool certexch_initialized = false;
@@ -241,9 +244,23 @@ queue_in_packet()
   }
   return ERR_LIMIT_EXCEEDED;
 }
+static int
+local_get_key(const uip_ip6addr_t *mcast_addr)
+{
+  PRINTF("Handle local key request for ");
+  PRINT6ADDR(mcast_addr);
+  PRINTF("\n");
+  struct sec_certificate *certificate;
+  CHECK_0(get_group_secure_description(mcast_addr, &certificate));
+  return add_cerificate(certificate);
+}
 int
 get_certificate_for(uip_ip6addr_t *mcast_addr)
 {
+  if(NETSTACK_ROUTING.node_is_root() == 1) {
+    return local_get_key(mcast_addr);
+  }
+
   /* Message format: TYPE | CERT_LEN | TIMESTAMP[4] | ADDR[16] | *PUB_CERT */
   cert_exchange_init();
 
@@ -461,8 +478,9 @@ copy_certificate(struct sec_certificate *dest, struct sec_certificate *src)
 int
 add_cerificate(struct sec_certificate *certificate)
 {
+  // TODO: should be public? Rather not
   uint32_t current;
-  if(first_free >= SEC_MAX_GROUP_DESCRIPTORS) {
+  if(first_free >= SEC_MAX_GROUP_DESCRIPTORS) { // TODO: handle cleaning
     PRINTF("No more space for cer\n");
     return -1;
   }
