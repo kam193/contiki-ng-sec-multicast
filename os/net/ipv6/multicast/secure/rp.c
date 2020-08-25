@@ -12,6 +12,8 @@
 #include "net/ipv6/multicast/secure/sec_multicast.h"
 #include "net/packetbuf.h"
 #include "net/ipv6/simple-udp.h"
+#include "os/lib/heapmem.h"
+#include "lib/random.h"
 
 #include "rp.h"
 #include "certexch.h"
@@ -24,12 +26,63 @@
 #define REQUEST_LEN_MIN 2 + 32
 #define MAX_ANSWER_LENGTH 1000
 
+struct secured_group {
+  bool occupied;
+  uint64_t last_refresh_sec;
+  uint16_t refresh_period_sec;
+  struct sec_certificate key_descriptor;
+};
+typedef struct secured_group secured_group_t;
+
+secured_group_t groups[SEC_MAX_SECURED_GROUPS];
+static size_t free_group_places = SEC_MAX_SECURED_GROUPS;
+
 static struct simple_udp_connection cert_exch;
 static struct sec_certificate propagated_certs[CERTEXCH_MAX_PROPAGATED_CERTS];
 static uint32_t first_free = 0;
 static uint8_t buffer[MAX_ANSWER_LENGTH];
 static uint8_t second_buffer[MAX_ANSWER_LENGTH];
 
+/*---------------------------------------------------------------------------*/
+/* KEY GENERATION HELPERS */
+/*---------------------------------------------------------------------------*/
+static void
+generate_random_chars(uint8_t *dest, size_t length)
+{
+  while(length > 0) {
+    dest[length - 1] = (uint8_t)(random_rand() % 256);
+    length--;
+  }
+}
+static int
+recreate_aes_cbc_key(secured_group_t *group_descriptor)
+{
+  struct secure_descriptor *key_desc = group_descriptor->key_descriptor.secure_descriptor;
+  generate_random_chars(key_desc->aes_key, sizeof(key_desc->aes_key));
+  generate_random_chars(key_desc->aes_vi, sizeof(key_desc->aes_vi));
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+static int
+recreate_group_key(secured_group_t *group_descriptor)
+{
+  switch(group_descriptor->key_descriptor.mode) {
+  case SEC_MODE_AES_CBC:
+    if(recreate_aes_cbc_key(group_descriptor) != 0) {
+      return ERR_OTHER;
+    }
+    break;
+
+  default:
+    return ERR_OTHER;
+    break;
+  }
+  group_descriptor->last_refresh_sec = clock_seconds();
+  PRINTF("Group key for ");
+  PRINT6ADDR(&group_descriptor->key_descriptor.group_addr);
+  PRINTF(" recreated\n");
+  return 0;
+}
 /*---------------------------------------------------------------------------*/
 static struct sec_certificate *
 find_certificate(uip_ip6addr_t *addr)
@@ -133,7 +186,7 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
     return;
   }
 
-  if (certexch_verify_cert(&client_cert) != 0){
+  if(certexch_verify_cert(&client_cert) != 0) {
     PRINTF("Failed verify client cert\n");
     return;
   }
@@ -146,8 +199,11 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
   }
 
   uip_ip6addr_t mcast_addr;
-  memcpy(&mcast_addr, tmp + 2, sizeof(uip_ip6addr_t));
+  memcpy(&mcast_addr, tmp + TIMESTAMP_SIZE, sizeof(uip_ip6addr_t));
 
+  unsigned long request_timestamp;
+  memcpy(&request_timestamp, tmp, TIMESTAMP_SIZE);
+  PRINTF("REQUEST TIME %u\n", request_timestamp);
   PRINTF("CertExch: GOT REQUEST FOR: ");
   PRINT6ADDR(&mcast_addr);
   PRINTF("\n");
@@ -168,9 +224,9 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
     return;
   }
   out_size = certexch_count_padding(out_size);
-  // TODO: set padding to buffer
+  /* TODO: set padding to buffer */
   uint32_t response_len = sizeof(buffer) - 1;
-  if (certexch_encode_data(buffer+1, &response_len, second_buffer, out_size, &client_cert) != 0){
+  if(certexch_encode_data(buffer + 1, &response_len, second_buffer, out_size, &client_cert) != 0) {
     PRINTF("Encrypt response failed\n");
     return;
   }
@@ -233,4 +289,74 @@ propagate_certificate(struct sec_certificate *cert)
   PRINT6ADDR(&cert->group_addr);
   PRINTF("\n");
   return 0;
+}
+/*---------------------------------------------------------------------------*/
+/* KEY DESCRIPTORS INITIALIZERS */
+/*---------------------------------------------------------------------------*/
+static int
+init_aes_cbc_descriptor(struct sec_certificate *descriptor)
+{
+  descriptor->flags = SEC_FLAG_DECRYPT & SEC_FLAG_ENCRYPT;
+  descriptor->secure_descriptor = malloc(sizeof(struct secure_descriptor));
+  if(descriptor->secure_descriptor == NULL) {
+    return ERR_OTHER;
+  }
+  return 0;
+}
+secured_group_t *
+find_group_descriptor(uip_ip6addr_t *addr)
+{
+  if(free_group_places == SEC_MAX_SECURED_GROUPS) {
+    return NULL;
+  }
+  for(size_t i = 0; i < SEC_MAX_SECURED_GROUPS; ++i) {
+    if(groups[i].occupied == true && uip_ip6addr_cmp(addr, &groups[i].key_descriptor.group_addr)) {
+      return &groups[i];
+    }
+  }
+  return NULL;
+}
+/* Create key descriptor for group */
+int
+init_key_descriptor(struct sec_certificate *descriptor, uip_ip6addr_t *maddr, uint16_t mode)
+{
+  uip_ip6addr_copy(&descriptor->group_addr, maddr);
+  descriptor->mode = mode;
+
+  switch(mode) {
+  case SEC_MODE_AES_CBC:
+    return init_aes_cbc_descriptor(descriptor);
+    break;
+
+  default:
+    return ERR_OTHER;
+    break;
+  }
+}
+/* Let's RP manage given group:which group, which mode and when refreshing key */
+int
+secure_group(uip_ip6addr_t *maddr, uint16_t mode, uint16_t key_refresh_period)
+{
+  if(find_group_descriptor(maddr) != NULL) {
+    return ERR_GROUP_EXISTS;
+  }
+  if(free_group_places == 0) {
+    return ERR_LIMIT_EXCEEDED;
+  }
+  for(size_t i = 0; i < SEC_MAX_SECURED_GROUPS; ++i) {
+    if(groups[i].occupied == true) {
+      continue;
+    }
+    free_group_places--;
+    groups[i].occupied = true;
+    groups[i].last_refresh_sec = 0;
+    groups[i].refresh_period_sec = key_refresh_period;
+    init_key_descriptor(&groups[i].key_descriptor, maddr, mode);
+    recreate_group_key(&groups[i]); /* TODO: Not need to create here */
+    PRINTF("Now secure group ");
+    PRINT6ADDR(maddr);
+    PRINTF("\n");
+    return 0;
+  }
+  return ERR_OTHER;
 }

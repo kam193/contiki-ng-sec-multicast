@@ -14,6 +14,7 @@
 #include <stdint.h>
 
 #include "net/ipv6/uip.h"
+#include "errors.h"
 
 /* Configurations and constants */
 
@@ -24,6 +25,9 @@
 #ifndef SEC_MAX_QUEUE_SIZE
 #define SEC_MAX_QUEUE_SIZE 5
 #endif
+
+#define TIMESTAMP_SIZE        4
+#define KEY_REQUEST_DATA_SIZE (TIMESTAMP_SIZE + sizeof(uip_ip6addr_t))
 
 /* When retry get cert */
 #ifndef SEC_QUEUE_RETRY_TIME
@@ -101,9 +105,6 @@ struct rsa_private_descriptor {
 
 int add_cerificate(struct sec_certificate *certificate);
 
-#define ERR_GROUP_NOT_KNOWN   1
-#define ERR_NEED_REFRESH_CERT 2
-#define ERR_LIMIT_EXCEEDED    3
 int encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len);
 int decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len);
 

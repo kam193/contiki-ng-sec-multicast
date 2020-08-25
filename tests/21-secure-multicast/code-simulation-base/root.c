@@ -17,7 +17,8 @@
 #include "net/ipv6/uip-debug.h"
 #include "net/routing/routing.h"
 
-#define FAIL_NOT_0(expr) if((expr) != 0) { PRINTF("[CRITICAL]\n"); PROCESS_EXIT(); }
+#define FAIL() PRINTF("[CRITICAL]\n"); PROCESS_EXIT();
+#define FAIL_NOT_0(expr) if((expr) != 0) { FAIL(); }
 
 #define MAX_PAYLOAD_LEN 120
 #define MCAST_SINK_UDP_PORT 3001
@@ -68,6 +69,11 @@ PROCESS_THREAD(rpl_root_process, ev, data)
 
   uip_ip6addr(&ipaddr_net1, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xABCD);
   uip_ip6addr(&ipaddr_net2, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xA00D);
+
+  FAIL_NOT_0(secure_group(&ipaddr_net1, SEC_MODE_AES_CBC, 120));
+  if(secure_group(&ipaddr_net1, SEC_MODE_AES_CBC, 120) != ERR_GROUP_EXISTS) {
+    FAIL();
+  }
 
   FAIL_NOT_0(add_cerificate(&cert))
   FAIL_NOT_0(add_cerificate(&cert_2));

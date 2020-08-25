@@ -244,18 +244,21 @@ queue_in_packet()
 int
 get_certificate_for(uip_ip6addr_t *mcast_addr)
 {
-  /* Message format: TYPE | CERT_LEN | TIMESTAMP[2] | ADDR[16] | *PUB_CERT */
+  /* Message format: TYPE | CERT_LEN | TIMESTAMP[4] | ADDR[16] | *PUB_CERT */
   cert_exchange_init();
 
   buffer[0] = CERT_EXCHANGE_REQUEST;
 
   /* Type & cert len are not padded, timestamp+addr -> encrypted and padded */
-  uint32_t padded_size = certexch_count_padding(2 + sizeof(uip_ip6addr_t));
+  PRINTF("TS SIZE: %d\n", sizeof(unsigned long));
+  uint32_t padded_size = certexch_count_padding(KEY_REQUEST_DATA_SIZE);
   uint8_t *tmp = malloc(padded_size);
 
-  memcpy((tmp + 2), mcast_addr, sizeof(uip_ip6addr_t));
+  unsigned int timestamp = clock_seconds();
+  memcpy(tmp, &timestamp, TIMESTAMP_SIZE);
+  memcpy((tmp + TIMESTAMP_SIZE), mcast_addr, sizeof(uip_ip6addr_t));
   /* TODO: Padding should be random! */
-  memset(tmp + 2 + sizeof(uip_ip6addr_t), 0, padded_size - 2 - sizeof(uip_ip6addr_t));
+  memset(tmp + KEY_REQUEST_DATA_SIZE, 0, padded_size - KEY_REQUEST_DATA_SIZE);
 
   uint32_t size = sizeof(buffer) - padded_size;
   if(certexch_encode_data(buffer + 2, &size, tmp, padded_size, certexch_rp_pub_cert()) != 0) {
