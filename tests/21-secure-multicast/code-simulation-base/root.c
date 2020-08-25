@@ -71,7 +71,8 @@ PROCESS_THREAD(rpl_root_process, ev, data)
   uip_ip6addr(&ipaddr_net2, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xA00D);
 
   FAIL_NOT_0(secure_group(&ipaddr_net1, SEC_MODE_AES_CBC, 120));
-  if(secure_group(&ipaddr_net1, SEC_MODE_AES_CBC, 120) != ERR_GROUP_EXISTS) {
+  FAIL_NOT_0(secure_group(&ipaddr_net2, SEC_MODE_AES_CBC, 120));
+  if(secure_group(&ipaddr_net2, SEC_MODE_AES_CBC, 120) != ERR_GROUP_EXISTS) {
     FAIL();
   }
 
@@ -102,6 +103,10 @@ PROCESS_THREAD(rpl_root_process, ev, data)
   while(1) {
     PROCESS_YIELD();
     if(etimer_expired(&et)) {
+      multicast_send(mcast_net_1);
+      multicast_send(mcast_net_2);
+      etimer_set(&et, 3 * CLOCK_SECOND);
+      PROCESS_YIELD_UNTIL(etimer_expired(&et));
       multicast_send(mcast_net_1);
       multicast_send(mcast_net_2);
       break;

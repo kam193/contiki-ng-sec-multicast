@@ -92,10 +92,10 @@ PROCESS_THREAD(mcast_sink_process, ev, data)
   PROCESS_YIELD_UNTIL(etimer_expired(&periodic_timer));
   etimer_stop(&periodic_timer);
 
-  FAIL_NOT_0(get_certificate_for(&addr));
-  PRINTF("[SIMULATION] Manually get cert for ");
-  PRINT6ADDR(&addr);
-  PRINTF("\n");
+  // FAIL_NOT_0(get_certificate_for(&addr));
+  // PRINTF("[SIMULATION] Manually get cert for ");
+  // PRINT6ADDR(&addr);
+  // PRINTF("\n");
 
   while(1) {
     PROCESS_YIELD();

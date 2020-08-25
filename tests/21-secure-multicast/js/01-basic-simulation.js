@@ -4,7 +4,7 @@ TIMEOUT(40000, log.testFailed());
 var receiver_net1 = [
   "Joined multicast group ff1e::89:abcd",
   "Got RP cert",
-  "Manually get cert for ff1e::89:abcd",
+  "Got: message12345678",
   "Got: message12345678",
 ];
 
@@ -12,12 +12,15 @@ var receiver_net2 = [
   "Joined multicast group ff1e::89:a00d",
   "Got RP cert",
   "Got: message12345678",
+  "Got: message12345678",
 ];
 
 var expected_mgs = {
   1: [
     "Starting propagate group key for ff1e::89:abcd",
     "Starting propagate group key for ff1e::89:a00d",
+    "Sending message to ff1e::89:abcd",
+    "Sending message to ff1e::89:a00d",
     "Sending message to ff1e::89:abcd",
     "Sending message to ff1e::89:a00d",
     "[DONE]",
