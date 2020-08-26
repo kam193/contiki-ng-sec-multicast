@@ -28,7 +28,6 @@
 
 struct secured_group {
   bool occupied;
-  uint64_t last_refresh_sec;
   uint16_t refresh_period_sec;
   struct sec_certificate key_descriptor;
 };
@@ -73,7 +72,8 @@ recreate_group_key(secured_group_t *group_descriptor)
     return ERR_OTHER;
     break;
   }
-  group_descriptor->last_refresh_sec = clock_seconds();
+  /* group_descriptor->last_refresh_sec = clock_seconds(); */
+  group_descriptor->key_descriptor.valid_until = clock_seconds() + group_descriptor->refresh_period_sec;
   PRINTF("Group key for ");
   PRINT6ADDR(&group_descriptor->key_descriptor.group_addr);
   PRINTF(" recreated\n");
@@ -105,8 +105,8 @@ get_group_secure_description(const uip_ipaddr_t *group_addr, struct sec_certific
     return ERR_OTHER;
   }
 
-  if(descriptor->last_refresh_sec == 0 ||
-     clock_seconds() - descriptor->last_refresh_sec >= descriptor->refresh_period_sec) {
+  if(descriptor->key_descriptor.valid_until == 0 ||
+     descriptor->key_descriptor.valid_until <= clock_seconds()) {
     CHECK_0(recreate_group_key(descriptor));
   }
 
@@ -114,20 +114,24 @@ get_group_secure_description(const uip_ipaddr_t *group_addr, struct sec_certific
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-/* Decode cert to chain of byte: ADDR | MODE | FLAGS | <descriptor> */
+/* Decode cert to chain of byte: ADDR | MODE | VALID_UNTIL | <descriptor> */
 /* Descriptor depends of MODE and basically is a chain of fields */
 /*---------------------------------------------------------------------------*/
 static int
-encode_cert_to_byte(struct sec_certificate *cert, uint8_t *buff, uint32_t *size)
+encode_cert_to_byte(struct sec_certificate *cert, uint32_t requestor_time, uint8_t *buff, uint32_t *size)
 {
   uint32_t result_size = 0;
 
   /* Copy header */
-  if(result_size + sizeof(uip_ip6addr_t) + 2 > *size) {
+  if(result_size + sizeof(uip_ip6addr_t) + 1 > *size) {
     return -1;
   }
-  memcpy(buff, &cert->group_addr, sizeof(uip_ip6addr_t) + 2);
-  result_size += sizeof(uip_ip6addr_t) + 2;
+  memcpy(buff, &cert->group_addr, sizeof(uip_ip6addr_t) + 1);
+  result_size += sizeof(uip_ip6addr_t) + 1;
+
+  /* Copy time translated to requestor time */
+  *(uint32_t *)(buff + result_size) = (requestor_time + (cert->valid_until - clock_seconds()));
+  result_size += sizeof(uint32_t);
 
   /* Copy descriptor depends of mode */
   switch(cert->mode) {
@@ -237,7 +241,7 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
 
   out_size = sizeof(second_buffer);
   memset(second_buffer, 0, out_size);
-  if(encode_cert_to_byte(cert, second_buffer, &out_size) != 0) {
+  if(encode_cert_to_byte(cert, request_timestamp, second_buffer, &out_size) != 0) {
     PRINTF("Encoding cert failed\n");
     return;
   }
@@ -298,7 +302,6 @@ init_cert_server()
 static int
 init_aes_cbc_descriptor(struct sec_certificate *descriptor)
 {
-  descriptor->flags = SEC_FLAG_DECRYPT & SEC_FLAG_ENCRYPT;
   descriptor->secure_descriptor = malloc(sizeof(struct secure_descriptor));
   if(descriptor->secure_descriptor == NULL) {
     return ERR_OTHER;
@@ -338,7 +341,7 @@ secure_group(uip_ip6addr_t *maddr, uint16_t mode, uint16_t key_refresh_period)
     }
     free_group_places--;
     groups[i].occupied = true;
-    groups[i].last_refresh_sec = 0;
+    groups[i].key_descriptor.valid_until = 0;
     groups[i].refresh_period_sec = key_refresh_period;
     init_key_descriptor(&groups[i].key_descriptor, maddr, mode);
     PRINTF("Now secure group ");

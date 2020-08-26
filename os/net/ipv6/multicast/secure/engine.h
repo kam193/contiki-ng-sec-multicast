@@ -72,13 +72,8 @@
 struct sec_certificate {
   uip_ip6addr_t group_addr;
   uint8_t mode;
-  uint8_t flags;
+  uint32_t valid_until;
   void *secure_descriptor;
-};
-
-struct sec_info {
-  uint8_t flags;
-  struct sec_certificate certificate;
 };
 
 /* Descriptors for specific types */

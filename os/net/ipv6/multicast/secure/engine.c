@@ -31,8 +31,13 @@
 static struct simple_udp_connection certexch_conn;
 static bool certexch_initialized = false;
 
+struct sec_info {
+  bool occupied;
+  struct sec_certificate certificate;
+};
+typedef struct sec_info sec_info_t;
 /* TODO: descriptors db should have an marker if field is free or not */
-struct sec_info group_descriptors[SEC_MAX_GROUP_DESCRIPTORS];
+sec_info_t group_descriptors[SEC_MAX_GROUP_DESCRIPTORS];
 uint32_t first_free = 0;
 uint32_t return_code = 0;
 
@@ -78,11 +83,13 @@ decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t
 {
   uint16_t decoded = 0;
   /* Decode header */
-  if(sizeof(uip_ip6addr_t) + 2 > size - decoded) {
+  if(sizeof(uip_ip6addr_t) + 1 + sizeof(uint32_t) > size - decoded) {
     return -1;
   }
-  memcpy(cert, data, sizeof(uip_ip6addr_t) + 2);
-  decoded += sizeof(uip_ip6addr_t) + 2;
+  memcpy(cert, data, sizeof(uip_ip6addr_t) + 1);
+  decoded += sizeof(uip_ip6addr_t) + 1;
+  memcpy(&cert->valid_until, data+decoded, sizeof(uint32_t));
+  decoded += sizeof(uint32_t);
 
   switch(cert->mode) {
   case SEC_MODE_AES_CBC:
@@ -267,7 +274,6 @@ get_certificate_for(uip_ip6addr_t *mcast_addr)
   buffer[0] = CERT_EXCHANGE_REQUEST;
 
   /* Type & cert len are not padded, timestamp+addr -> encrypted and padded */
-  PRINTF("TS SIZE: %d\n", sizeof(unsigned long));
   uint32_t padded_size = certexch_count_padding(KEY_REQUEST_DATA_SIZE);
   uint8_t *tmp = malloc(padded_size);
 
@@ -323,12 +329,18 @@ static struct sec_certificate *
 get_certificate(uip_ip6addr_t *group_addr)
 {
   /* TODO: check mode */
-  for(uint32_t i = 0; i < first_free; ++i) {
+  for(uint32_t i = 0; i < SEC_MAX_GROUP_DESCRIPTORS; ++i) {
+    if (group_descriptors[i].occupied == false){
+      continue;
+    }
     if(uip_ip6addr_cmp(&group_descriptors[i].certificate.group_addr, group_addr)) {
+      // if (clock_seconds() >= group_descriptors[i].certificate){
+
+      //   return NULL;
+      // }
       return &group_descriptors[i].certificate;
     }
   }
-
   return NULL;
 }
 /*---------------------------------------------------------------------------*/
@@ -478,25 +490,27 @@ copy_certificate(struct sec_certificate *dest, struct sec_certificate *src)
 int
 add_cerificate(struct sec_certificate *certificate)
 {
-  // TODO: should be public? Rather not
-  uint32_t current;
-  if(first_free >= SEC_MAX_GROUP_DESCRIPTORS) { // TODO: handle cleaning
-    PRINTF("No more space for cer\n");
-    return -1;
-  }
+  /* TODO: should be public? Rather not */
   /* TODO: check if not exists yet */
 
-  current = first_free++;
-  group_descriptors[current].flags = SEC_FLAG_MANUALLY_SET;
-  copy_certificate(&group_descriptors[current].certificate, certificate);
+  uint32_t current;
+  for(current = 0; current < SEC_MAX_GROUP_DESCRIPTORS; ++current) {
+    if(group_descriptors[current].occupied == true) {
+      continue;
+    }
+    group_descriptors[current].occupied = true;
+    copy_certificate(&group_descriptors[current].certificate, certificate);
 
-  PRINTF("Certificate for ");
-  PRINT6ADDR(&certificate->group_addr);
-  PRINTF(" is set\n");
+    PRINTF("Certificate for ");
+    PRINT6ADDR(&certificate->group_addr);
+    PRINTF(" is set\n");
 
-  process_post(&secure_engine, NEW_KEY_EVENT, &certificate->group_addr);
+    process_post(&secure_engine, NEW_KEY_EVENT, &certificate->group_addr);
 
-  return 0;
+    return 0;
+  }
+  PRINTF("No more space for cer\n");
+  return ERR_LIMIT_EXCEEDED;
 }
 /*---------------------------------------------------------------------------*/
 int
