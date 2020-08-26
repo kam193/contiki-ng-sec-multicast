@@ -7,7 +7,7 @@
  */
 
 #include "contiki.h"
-#include "certexch.h"
+#include "authorization.h"
 #include "os/lib/heapmem.h"
 
 #include <wolfssl/wolfcrypt/ecc.h>

@@ -1,6 +1,6 @@
 /**
  * \file
- *    Headers for Certificate Exchange
+ *    Headers for Authorization and Communication Service (authorization part).
  *
  *
  * \author  Kamil Mańkowski

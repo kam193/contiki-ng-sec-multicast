@@ -1,6 +1,7 @@
 /**
  * \file
- *         This file provides funtions for secure communications
+ *         This is Local Secure Functions Module. It provides the functions
+ *         needed for processing secure multicas communications on end devices.
  *
  * \author  Kamil Mańkowski
  *
@@ -25,8 +26,10 @@
 
 #include "common.h"
 #include "engine.h"
-#include "certexch.h"
-#include "rp.h"
+#include "authorization.h"
+#include "remote_engine.h"
+#include "common_engine.h"
+#include "encryptions.h"
 
 static struct simple_udp_connection certexch_conn;
 static bool certexch_initialized = false;
@@ -262,7 +265,7 @@ local_get_key(const uip_ip6addr_t *mcast_addr)
   return add_cerificate(certificate);
 }
 int
-get_certificate_for(uip_ip6addr_t *mcast_addr)
+get_certificate_for(const uip_ip6addr_t *mcast_addr)
 {
   if(NETSTACK_ROUTING.node_is_root() == 1) {
     return local_get_key(mcast_addr);
@@ -328,7 +331,6 @@ get_rp_cert()
 static struct sec_certificate *
 get_certificate(uip_ip6addr_t *group_addr)
 {
-  /* TODO: check mode */
   for(uint32_t i = 0; i < SEC_MAX_GROUP_DESCRIPTORS; ++i) {
     if(group_descriptors[i].occupied == false) {
       continue;
@@ -371,10 +373,10 @@ aes_cbc_encrypt(struct sec_certificate *cert, uint16_t message_len, unsigned cha
   if(padded_size > sizeof(buffer)) {
     return ERR_LIMIT_EXCEEDED;
   }
-  for (size_t i = message_len; i < padded_size; ++i){
+  for(size_t i = message_len; i < padded_size; ++i) {
     buffer[i] = (uint8_t)(random_rand() % 256);
   }
-  print_chars(padded_size-2, buffer+2);
+  print_chars(padded_size - 2, buffer + 2);
 
   if((return_code = wc_AesCbcEncrypt(&encryption_engine, out_buffer, buffer, padded_size)) != 0) {
     return return_code;
@@ -530,15 +532,9 @@ add_cerificate(struct sec_certificate *certificate)
 }
 /*---------------------------------------------------------------------------*/
 int
-encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint16_t message_len,
+encrypt_message(struct sec_certificate *cert, unsigned char *message, uint16_t message_len,
                 unsigned char *out_buffer, uint32_t *out_len)
 {
-  /* TODO: Data need to be aligned! */
-  struct sec_certificate *cert;
-  if((cert = get_certificate(dest_addr)) == NULL) {
-    return ERR_GROUP_NOT_KNOWN;
-  }
-
   /* First, we need to store a data_len in encoded data in case of any padding */
   memcpy(buffer, &message_len, sizeof(uint16_t));
   memcpy(buffer + sizeof(uint16_t), message, message_len);
@@ -553,17 +549,27 @@ encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint16_t messa
     return -1;
   }
 }
-/*---------------------------------------------------------------------------*/
-int
-decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint16_t message_len,
-                unsigned char *out_buffer, uint32_t *out_len)
-{
-  /* TODO: Data need to be aligned! */
+int process_outcomming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len){
   struct sec_certificate *cert;
   if((cert = get_certificate(dest_addr)) == NULL) {
-    return ERR_GROUP_NOT_KNOWN;
+    PRINTF("Cert needed. Cache and request\n");
+    if(cache_out_packet() == ERR_LIMIT_EXCEEDED) {
+      PRINTF("Waiting OUT queue limit exceeded, packet dropped\n");
+    } else {
+      get_certificate_for(dest_addr);
+    }
+    return DROP_PACKET;
   }
-
+  if(encrypt_message(cert, message, message_len, out_buffer, out_len) != 0) {
+    return DROP_PACKET;
+  }
+  return PROCESS_UPPER;
+}
+/*---------------------------------------------------------------------------*/
+int
+decrypt_message(struct sec_certificate *cert, uint8_t *message, uint16_t message_len,
+                unsigned char *out_buffer, uint32_t *out_len)
+{
   switch(cert->mode) {
   case SEC_MODE_AES_CBC:
     CHECK_0(aes_cbc_decrypt(cert, message, message_len, out_buffer, out_len));
@@ -576,13 +582,31 @@ decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint16_t messa
     return -1;
   }
 
-  // Get len of original message and remove it from the packet
-  uint16_t original_length = *(uint16_t*)(out_buffer);
-  for (size_t i = 0; i < original_length; ++i){
+  /* Get len of original message and remove it from the packet */
+  uint16_t original_length = *(uint16_t *)(out_buffer);
+  for(size_t i = 0; i < original_length; ++i) {
     out_buffer[i] = out_buffer[i + sizeof(uint16_t)];
   }
   *out_len = original_length;
   return 0;
+}
+int
+process_incoming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len)
+{
+  struct sec_certificate *cert;
+  if((cert = get_certificate(dest_addr)) == NULL) {
+    PRINTF("Cert needed. Cache and request\n");
+    if(queue_in_packet() == ERR_LIMIT_EXCEEDED) {
+      PRINTF("Waiting IN queue limit exceeded, packet dropped\n");
+    } else {
+      get_certificate_for(dest_addr);
+    }
+    return DROP_PACKET;
+  }
+  if(decrypt_message(cert, message, message_len, out_buffer, out_len) != 0) {
+    return DROP_PACKET;
+  }
+  return PROCESS_UPPER;
 }
 /*---------------------------------------------------------------------------*/
 /* MANAGING QUEUE */

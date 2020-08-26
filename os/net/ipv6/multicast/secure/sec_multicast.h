@@ -1,10 +1,10 @@
 /**
  * \file
  *      Header for secure multicast layer
- *         
+ *
  *
  * \author  Kamil Mańkowski
- *         
+ *
  */
 
 #ifndef SEC_MULTICAST_H_
@@ -13,7 +13,7 @@
 #include "contiki.h"
 #include <stdint.h>
 
-// By default use SMRF
+/* By default use SMRF */
 #ifndef SEC_MULTICAST_BASE_DRIVER
 #define SEC_MULTICAST_BASE_DRIVER smrf_driver
 

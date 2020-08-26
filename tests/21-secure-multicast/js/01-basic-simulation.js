@@ -50,9 +50,9 @@ function check_final() {
     if (last_msg[mote_id] < expected_mgs[mote_id].length) return;
   }
 
-  // log.testOK();
-  log.log("Finished\n");
-  log.testFailed();
+  log.testOK();
+  // log.log("Finished\n");
+  // log.testFailed();
 }
 
 while (true) {

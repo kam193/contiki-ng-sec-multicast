@@ -15,8 +15,10 @@
 #include "os/lib/heapmem.h"
 #include "lib/random.h"
 
-#include "rp.h"
-#include "certexch.h"
+#include "remote_engine.h"
+#include "common_engine.h"
+#include "encryptions.h"
+#include "authorization.h"
 #include "common.h"
 
 #define DEBUG DEBUG_PRINT

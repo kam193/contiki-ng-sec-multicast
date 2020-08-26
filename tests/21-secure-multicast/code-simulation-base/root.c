@@ -5,8 +5,9 @@
 #include "contiki-net.h"
 #include "net/ipv6/multicast/uip-mcast6.h"
 #include "net/ipv6/multicast/secure/engine.h"
-#include "net/ipv6/multicast/secure/certexch.h"
-#include "net/ipv6/multicast/secure/rp.h"
+#include "net/ipv6/multicast/secure/authorization.h"
+#include "net/ipv6/multicast/secure/remote_engine.h"
+
 
 #include "certs.h"
 
