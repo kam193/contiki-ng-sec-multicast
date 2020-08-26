@@ -41,9 +41,9 @@ typedef struct sec_info sec_info_t;
 /* TODO: descriptors db should have an marker if field is free or not */
 sec_info_t group_descriptors[SEC_MAX_GROUP_DESCRIPTORS];
 uint32_t first_free = 0;
-uint32_t return_code = 0;
 
-static uint8_t buffer[UIP_BUFSIZE];
+/* TODO: extract, maybe made shared buffer? */
+uint8_t buffer[UIP_BUFSIZE];
 
 extern uint16_t uip_slen;
 
@@ -95,12 +95,7 @@ decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t
 
   switch(cert->mode) {
   case SEC_MODE_AES_CBC:
-    if(sizeof(struct secure_descriptor) > size - decoded) {
-      return -1;
-    }
-    cert->secure_descriptor = malloc(sizeof(struct secure_descriptor)); /* TODO: check */
-    memcpy(cert->secure_descriptor, data + decoded, sizeof(struct secure_descriptor));
-    decoded += sizeof(struct secure_descriptor);
+    return aes_cbc_bytes_to_descriptor(cert, data + decoded, size - decoded);
     break;
 
   default:
@@ -323,76 +318,14 @@ get_certificate(uip_ip6addr_t *group_addr)
   return NULL;
 }
 /*---------------------------------------------------------------------------*/
-/* AES helpers                                                               */
-/*---------------------------------------------------------------------------*/
-static int
-count_aes_padded_size(uint8_t size)
-{
-  uint8_t padded_size = (size / 16) * 16;
-  if(padded_size < size) {
-    padded_size += 16;
-  }
-  return padded_size;
-}
-int
-aes_cbc_encrypt(struct sec_certificate *cert, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
-{
-  struct secure_descriptor *current_descriptor = cert->secure_descriptor;
-
-  Aes encryption_engine;
-  if((return_code = wc_AesSetKey(&encryption_engine, current_descriptor->aes_key,
-                                 AES_BLOCK_SIZE, current_descriptor->aes_vi, AES_ENCRYPTION)) != 0) {
-    return return_code;
-  }
-
-  uint16_t padded_size = count_aes_padded_size(message_len);
-  if(padded_size > sizeof(buffer)) {
-    return ERR_LIMIT_EXCEEDED;
-  }
-  for(size_t i = message_len; i < padded_size; ++i) {
-    buffer[i] = (uint8_t)(random_rand() % 256);
-  }
-  print_chars(padded_size - 2, buffer + 2);
-
-  if((return_code = wc_AesCbcEncrypt(&encryption_engine, out_buffer, buffer, padded_size)) != 0) {
-    return return_code;
-  }
-
-  *out_len = padded_size;
-  return 0;
-}
-/*---------------------------------------------------------------------------*/
-int
-aes_cbc_decrypt(struct sec_certificate *cert, unsigned char *message,
-                uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
-{
-  struct secure_descriptor *current_descriptor = cert->secure_descriptor;
-
-  Aes encryption_engine;
-  if((return_code = wc_AesSetKey(&encryption_engine, current_descriptor->aes_key,
-                                 AES_BLOCK_SIZE, current_descriptor->aes_vi, AES_DECRYPTION)) != 0) {
-    return return_code;
-  }
-
-  if((return_code = wc_AesCbcDecrypt(&encryption_engine, out_buffer, message, message_len)) != 0) {
-    return return_code;
-  }
-
-  *out_len = message_len;
-  return 0;
-}
-/*---------------------------------------------------------------------------*/
 /* Public functions - helpers                                                */
 /*---------------------------------------------------------------------------*/
 int
 copy_certificate(struct sec_certificate *dest, struct sec_certificate *src)
 {
-  /* TODO: safe allocate */
-  /* TODO: macro for short malloc and copy */
   memcpy(dest, src, sizeof(struct sec_certificate));
   if(src->mode == SEC_MODE_AES_CBC) {
-    dest->secure_descriptor = malloc(sizeof(struct secure_descriptor));
-    memcpy(dest->secure_descriptor, src->secure_descriptor, sizeof(struct secure_descriptor));
+    return aes_cbc_copy_descriptor(dest, src);
   }
   return 0;
 }
@@ -443,7 +376,9 @@ encrypt_message(struct sec_certificate *cert, unsigned char *message, uint16_t m
     return -1;
   }
 }
-int process_outcomming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len){
+int
+process_outcomming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len)
+{
   struct sec_certificate *cert;
   if((cert = get_certificate(dest_addr)) == NULL) {
     PRINTF("Cert needed. Cache and request\n");

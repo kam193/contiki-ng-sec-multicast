@@ -4,12 +4,20 @@
 
 #include "contiki.h"
 #include <stdint.h>
+#include "common_engine.h"
 
-/* Descriptors for specific types */
+/* AES-CBC SUPPORT */
 
-struct secure_descriptor {
+struct secure_descriptor { /* aes___ */
   unsigned char aes_key[16];
   unsigned char aes_vi[16];
 };
+
+int aes_cbc_bytes_to_descriptor(struct sec_certificate *cert, const uint8_t *data, uint16_t size);
+int aes_cbc_copy_descriptor(struct sec_certificate *dest, struct sec_certificate *src);
+
+int aes_cbc_encrypt(struct sec_certificate *cert, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len);
+int aes_cbc_decrypt(struct sec_certificate *cert, unsigned char *message, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len);
+
 
 #endif
