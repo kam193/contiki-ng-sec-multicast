@@ -12,8 +12,6 @@
 
 #define SEC_MODE_NONE         0 /* TODO: implement */
 #define SEC_MODE_AES_CBC      1
-#define SEC_MODE_RSA_PRIV     2
-#define SEC_MODE_RSA_PUB      3
 
 /* Certificate exchange constants */
 

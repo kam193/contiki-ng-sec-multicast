@@ -145,23 +145,6 @@ encode_cert_to_byte(struct sec_certificate *cert, uint32_t requestor_time, uint8
     result_size += sizeof(struct secure_descriptor);
     break;
 
-  case SEC_MODE_RSA_PUB:
-    ;
-    struct rsa_public_descriptor *desc = cert->secure_descriptor;
-    if(result_size + desc->n_length + desc->e_length + 2 * sizeof(size_t) > *size) {
-      return -1;
-    }
-
-    memcpy(buff + result_size, desc, 2 * sizeof(size_t));
-    result_size += 2 * sizeof(size_t);
-
-    memcpy(buff + result_size, desc->n, desc->n_length);
-    result_size += desc->n_length;
-
-    memcpy(buff + result_size, desc->e, desc->e_length);
-    result_size += desc->e_length;
-    break;
-
   default:
     return -2;
   }

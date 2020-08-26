@@ -18,7 +18,6 @@
 
 #include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/aes.h>
-#include <wolfssl/wolfcrypt/rsa.h>
 
 #define DEBUG DEBUG_PRINT
 #include "net/ipv6/uip-debug.h"
@@ -102,29 +101,6 @@ decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t
     cert->secure_descriptor = malloc(sizeof(struct secure_descriptor)); /* TODO: check */
     memcpy(cert->secure_descriptor, data + decoded, sizeof(struct secure_descriptor));
     decoded += sizeof(struct secure_descriptor);
-    break;
-
-  case SEC_MODE_RSA_PUB:
-    if(2 * sizeof(size_t) > size - decoded) {
-      return -1;
-    }
-    cert->secure_descriptor = malloc(sizeof(struct rsa_public_descriptor)); /* TODO: check */
-    struct rsa_public_descriptor *desc = cert->secure_descriptor;
-
-    memcpy(desc, data + decoded, 2 * sizeof(size_t));
-    decoded += 2 * sizeof(size_t);
-
-    if(desc->n_length + desc->e_length > size - decoded) {
-      return -1;
-    }
-
-    desc->n = malloc(desc->n_length); /* TODO: Check */
-    memcpy(desc->n, data + decoded, desc->n_length);
-    decoded += desc->n_length;
-
-    desc->e = malloc(desc->e_length); /* TODO: Check */
-    memcpy(desc->e, data + decoded, desc->e_length);
-    decoded += desc->e_length;
     break;
 
   default:
@@ -406,69 +382,6 @@ aes_cbc_decrypt(struct sec_certificate *cert, unsigned char *message,
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-/* RSA helpers                                                               */
-/*---------------------------------------------------------------------------*/
-int
-rsa_encrypt(struct sec_certificate *cert, unsigned char *message,
-            uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
-{
-  WC_RNG rng;
-  RsaKey key; /* TODO: implement on load cert */
-  int ret;
-  struct rsa_public_descriptor *desc = cert->secure_descriptor;
-
-  /* TODO: macro for code like this */
-  if((return_code = wc_InitRng(&rng)) != 0) {
-    return return_code;
-  }
-  if((return_code = wc_InitRsaKey(&key, NULL)) != 0) {
-    return return_code;
-  }
-  if((return_code = wc_RsaPublicKeyDecodeRaw(desc->n, desc->n_length, desc->e, desc->e_length, &key)) != 0) {
-    return return_code;
-  }
-
-  ret = wc_RsaPublicEncrypt(message, message_len, out_buffer, *out_len, &key, &rng);
-  if(ret >= 0) {
-    *out_len = ret;
-  }
-
-  wc_FreeRng(&rng);
-  return 0;
-}
-/*---------------------------------------------------------------------------*/
-int
-rsa_decrypt(struct sec_certificate *cert, unsigned char *message,
-            uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
-{
-  WC_RNG rng;
-  RsaKey key; /* TODO: implement on load cert */
-  int ret;
-  word32 key_index;
-  struct rsa_private_descriptor *desc = cert->secure_descriptor;
-
-  /* TODO: macro for code like this */
-  if((return_code = wc_InitRng(&rng)) != 0) {
-    return return_code;
-  }
-  if((return_code = wc_InitRsaKey(&key, NULL)) != 0) {
-    return return_code;
-  }
-  key_index = 0;
-  if((return_code = wc_RsaPrivateKeyDecode(desc->key_der, &key_index, &key, desc->key_length)) != 0) {
-    return return_code;
-  }
-
-  key.rng = &rng;
-  ret = wc_RsaPrivateDecrypt(message, message_len, out_buffer, *out_len, &key);
-  if(ret >= 0) {
-    *out_len = ret;
-  }
-
-  wc_FreeRng(&rng);
-  return 0;
-}
-/*---------------------------------------------------------------------------*/
 /* Public functions - helpers                                                */
 /*---------------------------------------------------------------------------*/
 int
@@ -480,24 +393,7 @@ copy_certificate(struct sec_certificate *dest, struct sec_certificate *src)
   if(src->mode == SEC_MODE_AES_CBC) {
     dest->secure_descriptor = malloc(sizeof(struct secure_descriptor));
     memcpy(dest->secure_descriptor, src->secure_descriptor, sizeof(struct secure_descriptor));
-  } else if(src->mode == SEC_MODE_RSA_PRIV) {
-    dest->secure_descriptor = malloc(sizeof(struct rsa_private_descriptor));
-    memcpy(dest->secure_descriptor, src->secure_descriptor, sizeof(struct rsa_private_descriptor));
-
-    struct rsa_private_descriptor *src_dsc = src->secure_descriptor, *dest_dsc = dest->secure_descriptor;
-    dest_dsc->key_der = malloc(sizeof(char) * dest_dsc->key_length);
-    memcpy(dest_dsc->key_der, src_dsc->key_der, dest_dsc->key_length);
-  } else if(src->mode == SEC_MODE_RSA_PUB) {
-    dest->secure_descriptor = malloc(sizeof(struct rsa_public_descriptor));
-    memcpy(dest->secure_descriptor, src->secure_descriptor, sizeof(struct rsa_public_descriptor));
-
-    struct rsa_public_descriptor *src_dsc = src->secure_descriptor, *dest_dsc = dest->secure_descriptor;
-    dest_dsc->n = malloc(sizeof(char) * dest_dsc->n_length);
-    memcpy(dest_dsc->n, src_dsc->n, dest_dsc->n_length);
-    dest_dsc->e = malloc(sizeof(char) * dest_dsc->e_length);
-    memcpy(dest_dsc->e, src_dsc->e, dest_dsc->e_length);
   }
-
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -542,8 +438,6 @@ encrypt_message(struct sec_certificate *cert, unsigned char *message, uint16_t m
   switch(cert->mode) {
   case SEC_MODE_AES_CBC:
     return aes_cbc_encrypt(cert, message_len + sizeof(uint16_t), out_buffer, out_len);
-  case SEC_MODE_RSA_PUB:
-    return rsa_encrypt(cert, buffer, message_len + sizeof(uint16_t), out_buffer, out_len);
 
   default:
     return -1;
@@ -573,9 +467,6 @@ decrypt_message(struct sec_certificate *cert, uint8_t *message, uint16_t message
   switch(cert->mode) {
   case SEC_MODE_AES_CBC:
     CHECK_0(aes_cbc_decrypt(cert, message, message_len, out_buffer, out_len));
-    break;
-  case SEC_MODE_RSA_PRIV:
-    CHECK_0(rsa_decrypt(cert, message, message_len, out_buffer, out_len));
     break;
 
   default:
