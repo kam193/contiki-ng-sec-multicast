@@ -32,7 +32,7 @@
 static struct uip_udp_conn *mcast_net_1;
 static struct uip_udp_conn *mcast_net_2;
 
-static char test_message[] = "message12345678";
+static char test_message[] = "this_is_test";
 static uip_ipaddr_t ipaddr_net1;
 static uip_ipaddr_t ipaddr_net2;
 
@@ -105,9 +105,6 @@ PROCESS_THREAD(rpl_root_process, ev, data)
   etimer_set(&et, 10 * CLOCK_SECOND);
   while(1) {
     PROCESS_YIELD();
-    // if(etimer_expired(&et)) {
-    //   break;
-    // }
   }
 
   PROCESS_END();

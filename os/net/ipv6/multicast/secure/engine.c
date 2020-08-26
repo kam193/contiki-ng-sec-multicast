@@ -41,7 +41,7 @@ sec_info_t group_descriptors[SEC_MAX_GROUP_DESCRIPTORS];
 uint32_t first_free = 0;
 uint32_t return_code = 0;
 
-static uint8_t buffer[1000];
+static uint8_t buffer[UIP_BUFSIZE];
 
 extern uint16_t uip_slen;
 
@@ -347,11 +347,18 @@ get_certificate(uip_ip6addr_t *group_addr)
 /*---------------------------------------------------------------------------*/
 /* AES helpers                                                               */
 /*---------------------------------------------------------------------------*/
-int
-aes_cbc_encrypt(struct sec_certificate *cert, unsigned char *message,
-                uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len)
+static int
+count_aes_padded_size(uint8_t size)
 {
-  /* TODO: Data need to be aligned! */
+  uint8_t padded_size = (size / 16) * 16;
+  if(padded_size < size) {
+    padded_size += 16;
+  }
+  return padded_size;
+}
+int
+aes_cbc_encrypt(struct sec_certificate *cert, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
+{
   struct secure_descriptor *current_descriptor = cert->secure_descriptor;
 
   Aes encryption_engine;
@@ -360,19 +367,27 @@ aes_cbc_encrypt(struct sec_certificate *cert, unsigned char *message,
     return return_code;
   }
 
-  if((return_code = wc_AesCbcEncrypt(&encryption_engine, out_buffer, message, message_len)) != 0) {
+  uint16_t padded_size = count_aes_padded_size(message_len);
+  if(padded_size > sizeof(buffer)) {
+    return ERR_LIMIT_EXCEEDED;
+  }
+  for (size_t i = message_len; i < padded_size; ++i){
+    buffer[i] = (uint8_t)(random_rand() % 256);
+  }
+  print_chars(padded_size-2, buffer+2);
+
+  if((return_code = wc_AesCbcEncrypt(&encryption_engine, out_buffer, buffer, padded_size)) != 0) {
     return return_code;
   }
 
-  *out_len = message_len;
+  *out_len = padded_size;
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 int
 aes_cbc_decrypt(struct sec_certificate *cert, unsigned char *message,
-                uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len)
+                uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
 {
-  /* TODO: Data need to be aligned! */
   struct secure_descriptor *current_descriptor = cert->secure_descriptor;
 
   Aes encryption_engine;
@@ -393,7 +408,7 @@ aes_cbc_decrypt(struct sec_certificate *cert, unsigned char *message,
 /*---------------------------------------------------------------------------*/
 int
 rsa_encrypt(struct sec_certificate *cert, unsigned char *message,
-            uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len)
+            uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
 {
   WC_RNG rng;
   RsaKey key; /* TODO: implement on load cert */
@@ -422,7 +437,7 @@ rsa_encrypt(struct sec_certificate *cert, unsigned char *message,
 /*---------------------------------------------------------------------------*/
 int
 rsa_decrypt(struct sec_certificate *cert, unsigned char *message,
-            uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len)
+            uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
 {
   WC_RNG rng;
   RsaKey key; /* TODO: implement on load cert */
@@ -515,7 +530,7 @@ add_cerificate(struct sec_certificate *certificate)
 }
 /*---------------------------------------------------------------------------*/
 int
-encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t message_len,
+encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint16_t message_len,
                 unsigned char *out_buffer, uint32_t *out_len)
 {
   /* TODO: Data need to be aligned! */
@@ -524,11 +539,15 @@ encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t messa
     return ERR_GROUP_NOT_KNOWN;
   }
 
+  /* First, we need to store a data_len in encoded data in case of any padding */
+  memcpy(buffer, &message_len, sizeof(uint16_t));
+  memcpy(buffer + sizeof(uint16_t), message, message_len);
+
   switch(cert->mode) {
   case SEC_MODE_AES_CBC:
-    return aes_cbc_encrypt(cert, message, message_len, out_buffer, out_len);
+    return aes_cbc_encrypt(cert, message_len + sizeof(uint16_t), out_buffer, out_len);
   case SEC_MODE_RSA_PUB:
-    return rsa_encrypt(cert, message, message_len, out_buffer, out_len);
+    return rsa_encrypt(cert, buffer, message_len + sizeof(uint16_t), out_buffer, out_len);
 
   default:
     return -1;
@@ -536,7 +555,7 @@ encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t messa
 }
 /*---------------------------------------------------------------------------*/
 int
-decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t message_len,
+decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint16_t message_len,
                 unsigned char *out_buffer, uint32_t *out_len)
 {
   /* TODO: Data need to be aligned! */
@@ -547,13 +566,23 @@ decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t messa
 
   switch(cert->mode) {
   case SEC_MODE_AES_CBC:
-    return aes_cbc_decrypt(cert, message, message_len, out_buffer, out_len);
+    CHECK_0(aes_cbc_decrypt(cert, message, message_len, out_buffer, out_len));
+    break;
   case SEC_MODE_RSA_PRIV:
-    return rsa_decrypt(cert, message, message_len, out_buffer, out_len);
+    CHECK_0(rsa_decrypt(cert, message, message_len, out_buffer, out_len));
+    break;
 
   default:
     return -1;
   }
+
+  // Get len of original message and remove it from the packet
+  uint16_t original_length = *(uint16_t*)(out_buffer);
+  for (size_t i = 0; i < original_length; ++i){
+    out_buffer[i] = out_buffer[i + sizeof(uint16_t)];
+  }
+  *out_len = original_length;
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
 /* MANAGING QUEUE */

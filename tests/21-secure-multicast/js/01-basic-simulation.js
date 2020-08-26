@@ -4,15 +4,15 @@ TIMEOUT(400000, log.testFailed());
 var receiver_net1 = [
   "Joined multicast group ff1e::89:abcd",
   "Got RP cert",
-  "Got: message12345678",
-  "Got: message12345678",
+  "Got: this_is_test",
+  "Got: this_is_test",
 ];
 
 var receiver_net2 = [
   "Joined multicast group ff1e::89:a00d",
   "Got RP cert",
-  "Got: message12345678",
-  "Got: message12345678",
+  "Got: this_is_test",
+  "Got: this_is_test",
 ];
 
 var expected_mgs = {

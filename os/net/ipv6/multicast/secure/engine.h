@@ -100,8 +100,8 @@ struct rsa_private_descriptor {
 
 int add_cerificate(struct sec_certificate *certificate);
 
-int encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len);
-int decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint32_t message_len, unsigned char *out_buffer, uint32_t *out_len);
+int encrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len);
+int decrypt_message(uip_ip6addr_t *dest_addr, unsigned char *message, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len);
 
 /* Certificate Exchange */
 
