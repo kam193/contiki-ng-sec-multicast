@@ -88,7 +88,7 @@ decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t
   }
   memcpy(cert, data, sizeof(uip_ip6addr_t) + 1);
   decoded += sizeof(uip_ip6addr_t) + 1;
-  memcpy(&cert->valid_until, data+decoded, sizeof(uint32_t));
+  memcpy(&cert->valid_until, data + decoded, sizeof(uint32_t));
   decoded += sizeof(uint32_t);
 
   switch(cert->mode) {
@@ -330,14 +330,15 @@ get_certificate(uip_ip6addr_t *group_addr)
 {
   /* TODO: check mode */
   for(uint32_t i = 0; i < SEC_MAX_GROUP_DESCRIPTORS; ++i) {
-    if (group_descriptors[i].occupied == false){
+    if(group_descriptors[i].occupied == false) {
       continue;
     }
     if(uip_ip6addr_cmp(&group_descriptors[i].certificate.group_addr, group_addr)) {
-      // if (clock_seconds() >= group_descriptors[i].certificate){
-
-      //   return NULL;
-      // }
+      if(group_descriptors[i].certificate.valid_until < clock_seconds()) {
+        PRINTF("Group key is expired.\n");
+        group_descriptors[i].occupied = false;
+        return NULL;
+      }
       return &group_descriptors[i].certificate;
     }
   }

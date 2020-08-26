@@ -226,7 +226,6 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
 
   unsigned long request_timestamp;
   memcpy(&request_timestamp, tmp, TIMESTAMP_SIZE);
-  PRINTF("REQUEST TIME %u\n", request_timestamp);
   PRINTF("CertExch: GOT REQUEST FOR: ");
   PRINT6ADDR(&mcast_addr);
   PRINTF("\n");
