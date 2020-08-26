@@ -19,7 +19,6 @@
 static ecc_key ca_pub;
 static ecc_key own_key;
 static struct ce_certificate own_pub;
-static struct ce_certificate *rp_pub_cert = NULL;
 
 int
 count_cert_hash(const struct ce_certificate *cert, uint8_t *out)
@@ -92,17 +91,6 @@ const struct ce_certificate *
 certexch_own_pub_cert()
 {
   return &own_pub;
-}
-int
-certexch_import_rp_cert(const struct ce_certificate *cert)
-{
-  rp_pub_cert = malloc(sizeof(struct ce_certificate));
-  return copy_pub_certificate(rp_pub_cert, cert);
-}
-const struct ce_certificate *
-certexch_rp_pub_cert()
-{
-  return rp_pub_cert;
 }
 void
 free_ce_certificate(struct ce_certificate *cert)

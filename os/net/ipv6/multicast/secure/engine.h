@@ -47,9 +47,10 @@
 
 /* Functions */
 
-int add_cerificate(struct sec_certificate *certificate);  // import_group_key_descriptor
+int decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t size);
+int add_cerificate(struct sec_certificate *certificate);  /* import_group_key_descriptor */
 
-// TODO: general init engine
+/* TODO: general init engine */
 
 int process_incoming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len);
 int process_outcomming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len);

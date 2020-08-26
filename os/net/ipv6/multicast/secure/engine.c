@@ -29,8 +29,8 @@
 #include "remote_engine.h"
 #include "common_engine.h"
 #include "encryptions.h"
+#include "end_device.h"
 
-static struct simple_udp_connection certexch_conn;
 static bool certexch_initialized = false;
 
 struct sec_info {
@@ -80,7 +80,7 @@ PROCESS(secure_engine, "Secure engine");
 /*---------------------------------------------------------------------------*/
 /* CERTIFICATE EXCHANGE                                                      */
 /*---------------------------------------------------------------------------*/
-static int
+int
 decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t size)
 {
   uint16_t decoded = 0;
@@ -105,87 +105,12 @@ decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t
 }
 /*---------------------------------------------------------------------------*/
 static void
-rp_public_cert_answer_handler(const uip_ipaddr_t *sender_addr,
-                              uint16_t sender_port,
-                              const uint8_t *data,
-                              uint16_t datalen)
-{
-  struct ce_certificate tmp;
-  if(datalen < 3) {
-    return;
-  }
-  if(certexch_decode_cert(&tmp, data + 2, (uint16_t)(data[1])) != 0) {
-    PRINTF("RP PUB decode error\n");
-
-    return;
-  }
-  if(certexch_verify_cert(&tmp) != 0) {
-    PRINTF("RP PUB verify error\n");
-
-    return;
-  }
-  certexch_import_rp_cert(&tmp);
-  free_ce_certificate(&tmp);
-  PRINTF("GOT RP PUB!\n");
-}
-/*---------------------------------------------------------------------------*/
-static void
-ce_answer_handler(const uip_ipaddr_t *sender_addr,
-                  uint16_t sender_port,
-                  const uint8_t *data,
-                  uint16_t datalen)
-{
-  /* TODO: allocate and free temporary cert */
-  uint32_t out_size = sizeof(buffer);
-  if(certexch_decode_data(buffer, &out_size, data + 1, datalen - 1, certexch_rp_pub_cert()) != 0) {
-    PRINTF("Decrypting answer failed\n");
-    return;
-  }
-  struct sec_certificate cert;
-  if(decode_bytes_to_cert(&cert, buffer, out_size) != 0) {
-    PRINTF("Decoding cert fails.\n");
-    return;
-  }
-  add_cerificate(&cert);
-}
-static void
-cert_exchange_answer_callback(struct simple_udp_connection *c,
-                              const uip_ipaddr_t *sender_addr,
-                              uint16_t sender_port,
-                              const uip_ipaddr_t *receiver_addr,
-                              uint16_t receiver_port,
-                              const uint8_t *data,
-                              uint16_t datalen)
-{
-  request_handler_t handler;
-
-  /* TODO: max data len */
-  uint8_t flags = *(data);
-
-  switch(flags) {
-  case CERT_EXCHANGE_ANSWER:
-    handler = ce_answer_handler;
-    break;
-
-  case CE_RP_PUB_ANSWER:
-    handler = rp_public_cert_answer_handler;
-    break;
-
-  default:
-    PRINTF("CertExch: Invalid message, skipped\n");
-    return;
-  }
-  handler(sender_addr, sender_port, data, datalen);
-}
-static void
 cert_exchange_init()
 {
   if(certexch_initialized) {
     return;
   }
-
-  simple_udp_register(&certexch_conn, CERT_ANSWER_PORT, NULL,
-                      RP_CERT_SERVER_PORT, cert_exchange_answer_callback);
+  init_communication_service();
   process_start(&secure_engine, NULL);
   certexch_initialized = true;
 }
@@ -241,60 +166,8 @@ get_certificate_for(const uip_ip6addr_t *mcast_addr)
   if(NETSTACK_ROUTING.node_is_root() == 1) {
     return local_get_key(mcast_addr);
   }
-
-  /* Message format: TYPE | CERT_LEN | TIMESTAMP[4] | ADDR[16] | *PUB_CERT */
   cert_exchange_init();
-
-  buffer[0] = CERT_EXCHANGE_REQUEST;
-
-  /* Type & cert len are not padded, timestamp+addr -> encrypted and padded */
-  uint32_t padded_size = certexch_count_padding(KEY_REQUEST_DATA_SIZE);
-  uint8_t *tmp = malloc(padded_size);
-
-  unsigned int timestamp = clock_seconds();
-  memcpy(tmp, &timestamp, TIMESTAMP_SIZE);
-  memcpy((tmp + TIMESTAMP_SIZE), mcast_addr, sizeof(uip_ip6addr_t));
-  /* TODO: Padding should be random! */
-  memset(tmp + KEY_REQUEST_DATA_SIZE, 0, padded_size - KEY_REQUEST_DATA_SIZE);
-
-  uint32_t size = sizeof(buffer) - padded_size;
-  if(certexch_encode_data(buffer + 2, &size, tmp, padded_size, certexch_rp_pub_cert()) != 0) {
-    PRINTF("Encoding error\n");
-    return -1;
-  }
-  size += 2;
-  free(tmp);
-
-  uint16_t cert_len = sizeof(buffer) - size;
-  certexch_encode_cert(buffer + size, &cert_len, certexch_own_pub_cert());
-  buffer[1] = (uint8_t)cert_len;
-
-  /* TODO: wait until reachable */
-  uip_ip6addr_t root_addr;
-  NETSTACK_ROUTING.get_root_ipaddr(&root_addr);
-
-  /* TODO: Am I root? */
-  simple_udp_sendto(&certexch_conn, buffer, size + cert_len, &root_addr);
-  PRINTF("CertExch: Send request for %d ", size);
-  PRINT6ADDR(mcast_addr);
-  PRINTF("\n");
-
-  return 0;
-}
-int
-get_rp_cert()
-{
-  cert_exchange_init();
-  uint8_t data = CE_RP_PUB_REQUEST;
-
-  /* TODO: wait until reachable */
-  uip_ip6addr_t root_addr;
-  NETSTACK_ROUTING.get_root_ipaddr(&root_addr);
-
-  /* TODO: Am I root? */
-  simple_udp_sendto(&certexch_conn, &data, 1, &root_addr);
-  PRINTF("CertExch: Send request for RP pub cert\n");
-  return 0;
+  return send_request_group_key(mcast_addr);
 }
 /*---------------------------------------------------------------------------*/
 /* Private functions                                                         */
@@ -337,7 +210,6 @@ copy_certificate(struct sec_certificate *dest, struct sec_certificate *src)
 int
 add_cerificate(struct sec_certificate *certificate)
 {
-  /* TODO: should be public? Rather not */
   /* TODO: check if not exists yet */
 
   uint32_t current;
@@ -360,7 +232,7 @@ add_cerificate(struct sec_certificate *certificate)
   return ERR_LIMIT_EXCEEDED;
 }
 /*---------------------------------------------------------------------------*/
-int
+static int
 encrypt_message(struct sec_certificate *cert, unsigned char *message, uint16_t message_len,
                 unsigned char *out_buffer, uint32_t *out_len)
 {
@@ -376,6 +248,7 @@ encrypt_message(struct sec_certificate *cert, unsigned char *message, uint16_t m
     return -1;
   }
 }
+/*---------------------------------------------------------------------------*/
 int
 process_outcomming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len)
 {
@@ -395,7 +268,7 @@ process_outcomming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t m
   return PROCESS_UPPER;
 }
 /*---------------------------------------------------------------------------*/
-int
+static int
 decrypt_message(struct sec_certificate *cert, uint8_t *message, uint16_t message_len,
                 unsigned char *out_buffer, uint32_t *out_len)
 {
@@ -416,6 +289,7 @@ decrypt_message(struct sec_certificate *cert, uint8_t *message, uint16_t message
   *out_len = original_length;
   return 0;
 }
+/*---------------------------------------------------------------------------*/
 int
 process_incoming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len)
 {

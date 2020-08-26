@@ -12,10 +12,14 @@
 #define END_DEVICE_H_
 
 #include "net/ipv6/uip.h"
+#include "authorization.h"
 
-/* Certificate Exchange */
-
-int get_certificate_for(uip_ip6addr_t *mcast_addr); //-> private
 int get_rp_cert(); // -> private? 
+
+void init_communication_service();
+int send_request_group_key(const uip_ip6addr_t *mcast_addr);
+
+int certexch_import_rp_cert(const struct ce_certificate *cert);
+const struct ce_certificate *certexch_rp_pub_cert();
 
 #endif

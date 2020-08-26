@@ -4,6 +4,7 @@
 
 #include "encryptions.h"
 #include "common_engine.h"
+#include "common.h"
 #include "errors.h"
 
 #define DEBUG DEBUG_PRINT
@@ -41,7 +42,7 @@ aes_cbc_encrypt(struct sec_certificate *cert, uint16_t message_len, unsigned cha
     return ERR_LIMIT_EXCEEDED;
   }
   for(size_t i = message_len; i < padded_size; ++i) {
-    buffer[i] = (uint8_t)(random_rand() % 256);
+    buffer[i] = RANDOM_CHAR();
   }
   print_chars(padded_size - 2, buffer + 2);
 
