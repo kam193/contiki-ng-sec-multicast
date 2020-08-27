@@ -74,8 +74,8 @@ PROCESS_THREAD(mcast_sink_process, ev, data)
   static struct etimer periodic_timer;
   etimer_set(&periodic_timer, 200);
 
-  FAIL_NOT_0(certexch_import_ca_key(&ca));
-  FAIL_NOT_0(certexch_import_own_cert(&c3_private_cert));
+  FAIL_NOT_0(auth_import_ca_cert(&ca));
+  FAIL_NOT_0(auth_import_own_cert(&c3_private_cert));
 
   uip_ipaddr_t root_addr;
   while(1) {

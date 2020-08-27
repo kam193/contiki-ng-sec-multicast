@@ -18,10 +18,10 @@
 
 static ecc_key ca_pub;
 static ecc_key own_key;
-static struct ce_certificate own_pub;
+static device_cert_t own_pub;
 
 int
-count_cert_hash(const struct ce_certificate *cert, uint8_t *out)
+count_cert_hash(const device_cert_t *cert, uint8_t *out)
 {
   Sha256 sha256;
   CHECK_0(wc_InitSha256(&sha256));
@@ -36,7 +36,7 @@ count_cert_hash(const struct ce_certificate *cert, uint8_t *out)
   return 0;
 }
 int
-copy_pub_certificate(struct ce_certificate *dest, const struct ce_certificate *src)
+auth_copy_pub_cert(device_cert_t *dest, const device_cert_t *src)
 {
   /* TODO: checks */
   /* Copy header */
@@ -53,21 +53,21 @@ copy_pub_certificate(struct ce_certificate *dest, const struct ce_certificate *s
 }
 /*---------------------------------------------------------------------------*/
 int
-certexch_import_ca_key(const struct ca_cert *cert)
+auth_import_ca_cert(const ca_cert_t *cert)
 {
   CHECK_0(wc_ecc_init(&ca_pub));
   CHECK_0(wc_ecc_import_x963(cert->pub, cert->size, &ca_pub));
   return 0;
 }
 int
-certexch_verify_cert(const struct ce_certificate *cert)
+auth_verify_cert(const device_cert_t *cert)
 {
   /* CHECK_1(ca_pub.state != 0); // TODO: check if CA created */
   int verification_result = 0;
-  uint8_t hash[32];
+  uint8_t hash[CERT_HASH_LEN];
 
   CHECK_0(count_cert_hash(cert, hash));
-  CHECK_0(wc_ecc_verify_hash(cert->signature, cert->signature_len, hash, 32,
+  CHECK_0(wc_ecc_verify_hash(cert->signature, cert->signature_len, hash, CERT_HASH_LEN,
                              &verification_result, &ca_pub));
 
   if(verification_result == 1) {
@@ -76,10 +76,10 @@ certexch_verify_cert(const struct ce_certificate *cert)
   return -1;
 }
 int
-certexch_import_own_cert(const struct ce_certificate *cert)
+auth_import_own_cert(const device_cert_t *cert)
 {
-  CHECK_0(certexch_verify_cert(cert));
-  CHECK_0(copy_pub_certificate(&own_pub, cert));
+  CHECK_0(auth_verify_cert(cert));
+  CHECK_0(auth_copy_pub_cert(&own_pub, cert));
 
   CHECK_0(wc_ecc_init(&own_key));
   CHECK_0(wc_ecc_import_private_key(cert->priv, cert->priv_len,
@@ -87,13 +87,13 @@ certexch_import_own_cert(const struct ce_certificate *cert)
                                     &own_key));
   return 0;
 }
-const struct ce_certificate *
-certexch_own_pub_cert()
+const device_cert_t *
+auth_own_pub_cert()
 {
   return &own_pub;
 }
 void
-free_ce_certificate(struct ce_certificate *cert)
+auth_free_device_cert(device_cert_t *cert)
 {
   if(cert->pub) {
     free(cert->pub);
@@ -115,7 +115,7 @@ free_ce_certificate(struct ce_certificate *cert)
 /* ENCRYPTION BASED ON CERTS */
 /*---------------------------------------------------------------------------*/
 uint8_t
-certexch_count_padding(uint8_t size)
+auth_count_padding(uint8_t size)
 {
   uint8_t padded_size = (size / 16) * 16;
   if(padded_size < size) {
@@ -124,9 +124,9 @@ certexch_count_padding(uint8_t size)
   return padded_size;
 }
 int
-certexch_encode_data(uint8_t *dest_data, uint32_t *dest_len,
+auth_encrypt_data(uint8_t *dest_data, uint32_t *dest_len,
                      const uint8_t *src_data, uint32_t src_len,
-                     const struct ce_certificate *receiver_pub)
+                     const device_cert_t *receiver_pub)
 {
   ecc_key receiver;
   CHECK_0(wc_ecc_init(&receiver));
@@ -141,9 +141,9 @@ certexch_encode_data(uint8_t *dest_data, uint32_t *dest_len,
   return 0;
 }
 int
-certexch_decode_data(uint8_t *dest_data, uint32_t *dest_len,
+auth_decrypt_data(uint8_t *dest_data, uint32_t *dest_len,
                      const uint8_t *src_data, uint32_t src_len,
-                     const struct ce_certificate *sender_pub)
+                     const device_cert_t *sender_pub)
 {
   ecc_key sender;
   CHECK_0(wc_ecc_init(&sender));
@@ -163,7 +163,7 @@ certexch_decode_data(uint8_t *dest_data, uint32_t *dest_len,
 /* Private part is skiped */
 /*---------------------------------------------------------------------------*/
 int
-certexch_decode_cert(struct ce_certificate *dest_cert, const uint8_t *src_data, uint16_t src_len)
+auth_decode_cert(device_cert_t *dest_cert, const uint8_t *src_data, uint16_t src_len)
 {
   uint16_t part_size = sizeof(uip_ip6addr_t) + 3;
   CHECK_1(src_len >= part_size);
@@ -182,7 +182,7 @@ certexch_decode_cert(struct ce_certificate *dest_cert, const uint8_t *src_data, 
 /* Encode cert to bytes stream */
 /*---------------------------------------------------------------------------*/
 int
-certexch_encode_cert(uint8_t *dest_data, uint16_t *dest_len, const struct ce_certificate *src_cert)
+auth_encode_cert(uint8_t *dest_data, uint16_t *dest_len, const device_cert_t *src_cert)
 {
   uint32_t result_size = sizeof(uip_ip6addr_t) + 3; /* Header */
 

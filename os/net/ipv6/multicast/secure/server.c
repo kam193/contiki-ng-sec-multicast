@@ -37,7 +37,7 @@ rp_public_cert_request_handler(const uip_ipaddr_t *sender_addr,
   }
   uint16_t out_size = sizeof(buffer);
   buffer[0] = CE_RP_PUB_ANSWER;
-  if(certexch_encode_cert(buffer + 2, &out_size, certexch_own_pub_cert()) != 0) {
+  if(auth_encode_cert(buffer + 2, &out_size, auth_own_pub_cert()) != 0) {
     PRINTF("Failed encoding RP PUB\n");
     return;
   }
@@ -55,26 +55,26 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
                    uint16_t datalen)
 {
   struct sec_certificate *cert;
-  struct ce_certificate client_cert;
+  device_cert_t client_cert;
   if(datalen < REQUEST_LEN_MIN) {
     PRINTF("CertExch: Invalid message, skipped\n");
     return;
   }
 
   uint8_t cert_len = data[1];
-  if(certexch_decode_cert(&client_cert, data + (datalen - cert_len), cert_len) != 0) {
+  if(auth_decode_cert(&client_cert, data + (datalen - cert_len), cert_len) != 0) {
     PRINTF("Decoding client cert failed\n");
     return;
   }
 
-  if(certexch_verify_cert(&client_cert) != 0) {
+  if(auth_verify_cert(&client_cert) != 0) {
     PRINTF("Failed verify client cert\n");
     return;
   }
 
   uint8_t tmp[32];
   uint32_t out_size = sizeof(tmp);
-  if(certexch_decode_data(tmp, &out_size, data + 2, datalen - cert_len - 2, &client_cert) != 0) {
+  if(auth_decrypt_data(tmp, &out_size, data + 2, datalen - cert_len - 2, &client_cert) != 0) {
     PRINTF("Decripting failed\n");
     return;
   }
@@ -102,10 +102,10 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
     PRINTF("Encoding cert failed\n");
     return;
   }
-  out_size = certexch_count_padding(out_size);
+  out_size = auth_count_padding(out_size);
   /* TODO: set padding to buffer */
   uint32_t response_len = sizeof(buffer) - 1;
-  if(certexch_encode_data(buffer + 1, &response_len, second_buffer, out_size, &client_cert) != 0) {
+  if(auth_encrypt_data(buffer + 1, &response_len, second_buffer, out_size, &client_cert) != 0) {
     PRINTF("Encrypt response failed\n");
     return;
   }
@@ -113,7 +113,7 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
   buffer[0] = CERT_EXCHANGE_ANSWER;
   response_len += 1;
   simple_udp_sendto(&cert_exch, buffer, response_len, sender_addr);
-  free_ce_certificate(&client_cert);
+  auth_free_device_cert(&client_cert);
 }
 /*---------------------------------------------------------------------------*/
 static void

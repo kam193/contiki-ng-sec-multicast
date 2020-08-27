@@ -77,8 +77,8 @@ PROCESS_THREAD(rpl_root_process, ev, data)
     FAIL();
   }
 
-  FAIL_NOT_0(certexch_import_ca_key(&ca));
-  FAIL_NOT_0(certexch_import_own_cert(&rp_private_cert));
+  FAIL_NOT_0(auth_import_ca_cert(&ca));
+  FAIL_NOT_0(auth_import_own_cert(&rp_private_cert));
 
   NETSTACK_ROUTING.root_start();
 

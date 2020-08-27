@@ -1,29 +1,30 @@
 /**
  * \file
- *    Headers for Authorization and Communication Service (authorization part).
+ *    Headers for Authorization Service (authorization part).
  *
  *
  * \author  Kamil Mańkowski
  *
  */
 
-#ifndef CERTEXCH_H_
-#define CERTEXCH_H_
+#ifndef AUTHORIZATION_H_
+#define AUTHORIZATION_H_
 
 #include "contiki.h"
 #include "net/ipv6/uip.h"
 
-#define CE_HASH_LEN 32
+#define CERT_HASH_LEN 32
 
-#define CE_PUB_RP_CERT      1
-#define CE_PUB_CLIENT_CERT  2
+#define CE_SERVER_PUB       1
+#define CE_NODE_PUB         2
 
 struct ca_cert {
   uint16_t size;
   uint8_t *pub;
 };
+typedef struct ca_cert ca_cert_t;
 
-struct ce_certificate {
+struct device_cert {
   uint8_t owner_addr[16];
   uint8_t flags;
   uint8_t pub_len;
@@ -34,24 +35,25 @@ struct ce_certificate {
   uint8_t priv_len;
   uint8_t *priv;
 };
+typedef struct device_cert device_cert_t;
 
-int certexch_import_ca_key(const struct ca_cert *cert);
-int certexch_verify_cert(const struct ce_certificate *cert);
-int certexch_import_own_cert(const struct ce_certificate *cert);
-const struct ce_certificate *certexch_own_pub_cert();
+int auth_import_ca_cert(const ca_cert_t *cert);
+int auth_verify_cert(const device_cert_t *cert);
+int auth_import_own_cert(const device_cert_t *cert);
+const device_cert_t *auth_own_pub_cert();
 
-int certexch_decode_cert(struct ce_certificate *dest_cert, const uint8_t *src_data, uint16_t src_len);
-int certexch_encode_cert(uint8_t *dest_data, uint16_t *dest_len, const struct ce_certificate *src_cert);
+int auth_decode_cert(device_cert_t *dest_cert, const uint8_t *src_data, uint16_t src_len);
+int auth_encode_cert(uint8_t *dest_data, uint16_t *dest_len, const device_cert_t *src_cert);
 
-int certexch_encode_data(uint8_t *dest_data, uint32_t *dest_len,
+int auth_encrypt_data(uint8_t *dest_data, uint32_t *dest_len,
                          const uint8_t *src_data, uint32_t src_len,
-                         const struct ce_certificate *receiver_pub); // encrypt
-int certexch_decode_data(uint8_t *dest_data, uint32_t *dest_len,
+                         const device_cert_t *receiver_pub);
+int auth_decrypt_data(uint8_t *dest_data, uint32_t *dest_len,
                          const uint8_t *src_data, uint32_t src_len,
-                         const struct ce_certificate *sender_pub); // decrypt
-uint8_t certexch_count_padding(uint8_t size);
+                         const device_cert_t *sender_pub);
+uint8_t auth_count_padding(uint8_t size);
 
-void free_ce_certificate(struct ce_certificate *cert);
-int copy_pub_certificate(struct ce_certificate *dest, const struct ce_certificate *src);
+void auth_free_device_cert(device_cert_t *cert);
+int auth_copy_pub_cert(device_cert_t *dest, const device_cert_t *src);
 
 #endif

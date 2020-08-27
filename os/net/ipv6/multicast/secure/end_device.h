@@ -19,7 +19,7 @@ int get_rp_cert(); // -> private?
 void init_communication_service();
 int send_request_group_key(const uip_ip6addr_t *mcast_addr);
 
-int certexch_import_rp_cert(const struct ce_certificate *cert);
-const struct ce_certificate *certexch_rp_pub_cert();
+int certexch_import_rp_cert(const device_cert_t *cert);
+const device_cert_t *certexch_rp_pub_cert();
 
 #endif

@@ -22,7 +22,7 @@
 #include "encryptions.h"
 #include "end_device.h"
 
-static struct ce_certificate *rp_pub_cert = NULL;
+static device_cert_t *rp_pub_cert = NULL;
 static struct simple_udp_connection certexch_conn;
 bool initialized = false;
 
@@ -30,13 +30,16 @@ extern uint8_t buffer[UIP_BUFSIZE];
 
 /*---------------------------------------------------------------------------*/
 int
-certexch_import_rp_cert(const struct ce_certificate *cert)
+certexch_import_rp_cert(const device_cert_t *cert)
 {
-  rp_pub_cert = malloc(sizeof(struct ce_certificate));
-  return copy_pub_certificate(rp_pub_cert, cert);
+  if(!(cert->flags & CE_SERVER_PUB)) {
+    return ERR_INCORRECT_DATA;
+  }
+  rp_pub_cert = malloc(sizeof(device_cert_t));
+  return auth_copy_pub_cert(rp_pub_cert, cert);
 }
 /*---------------------------------------------------------------------------*/
-const struct ce_certificate *
+const device_cert_t *
 certexch_rp_pub_cert()
 {
   return rp_pub_cert;
@@ -48,20 +51,20 @@ rp_public_cert_answer_handler(const uip_ipaddr_t *sender_addr,
                               const uint8_t *data,
                               uint16_t datalen)
 {
-  struct ce_certificate tmp;
+  device_cert_t tmp;
   if(datalen < 3) {
     return;
   }
-  if(certexch_decode_cert(&tmp, data + 2, (uint16_t)(data[1])) != 0) {
+  if(auth_decode_cert(&tmp, data + 2, (uint16_t)(data[1])) != 0) {
     PRINTF("RP PUB decode error\n");
     return;
   }
-  if(certexch_verify_cert(&tmp) != 0) {
+  if(auth_verify_cert(&tmp) != 0) {
     PRINTF("RP PUB verify error\n");
     return;
   }
   certexch_import_rp_cert(&tmp);
-  free_ce_certificate(&tmp);
+  auth_free_device_cert(&tmp);
   PRINTF("GOT RP PUB!\n");
 }
 /*---------------------------------------------------------------------------*/
@@ -73,7 +76,7 @@ ce_answer_handler(const uip_ipaddr_t *sender_addr,
 {
   /* TODO: allocate and free temporary cert */
   uint32_t out_size = sizeof(buffer);
-  if(certexch_decode_data(buffer, &out_size, data + 1, datalen - 1, certexch_rp_pub_cert()) != 0) {
+  if(auth_decrypt_data(buffer, &out_size, data + 1, datalen - 1, certexch_rp_pub_cert()) != 0) {
     PRINTF("Decrypting answer failed\n");
     return;
   }
@@ -141,7 +144,7 @@ send_request_group_key(const uip_ip6addr_t *mcast_addr)
   buffer[0] = CERT_EXCHANGE_REQUEST;
 
   /* Type & cert len are not padded, timestamp+addr -> encrypted and padded */
-  uint32_t padded_size = certexch_count_padding(KEY_REQUEST_DATA_SIZE);
+  uint32_t padded_size = auth_count_padding(KEY_REQUEST_DATA_SIZE);
   uint8_t *tmp = malloc(padded_size);
 
   uint32_t timestamp = clock_seconds();
@@ -153,7 +156,7 @@ send_request_group_key(const uip_ip6addr_t *mcast_addr)
   }
 
   uint32_t size = sizeof(buffer) - padded_size;
-  if(certexch_encode_data(buffer + 2, &size, tmp, padded_size, certexch_rp_pub_cert()) != 0) {
+  if(auth_encrypt_data(buffer + 2, &size, tmp, padded_size, certexch_rp_pub_cert()) != 0) {
     PRINTF("Encoding error\n");
     return -1;
   }
@@ -161,7 +164,7 @@ send_request_group_key(const uip_ip6addr_t *mcast_addr)
   free(tmp);
 
   uint16_t cert_len = sizeof(buffer) - size;
-  certexch_encode_cert(buffer + size, &cert_len, certexch_own_pub_cert());
+  auth_encode_cert(buffer + size, &cert_len, auth_own_pub_cert());
   buffer[1] = (uint8_t)cert_len;
 
   send_to_coordinator(buffer, size + cert_len);
