@@ -14,7 +14,7 @@
 #include "net/ipv6/uip-debug.h"
 #include "tmp_debug.h"
 
-#include "common.h"
+#include "helpers.h"
 #include "engine.h"
 #include "authorization.h"
 #include "remote_engine.h"

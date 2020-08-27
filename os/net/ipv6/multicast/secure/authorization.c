@@ -13,7 +13,7 @@
 #include <wolfssl/wolfcrypt/ecc.h>
 #include <wolfssl/wolfcrypt/hash.h>
 
-#include "./common.h"
+#include "./helpers.h"
 #include "tmp_debug.h"
 
 static ecc_key ca_pub;

@@ -12,7 +12,7 @@
 #include "common_engine.h"
 #include "encryptions.h"
 #include "authorization.h"
-#include "common.h"
+#include "helpers.h"
 #include "server.h"
 
 #define DEBUG DEBUG_PRINT

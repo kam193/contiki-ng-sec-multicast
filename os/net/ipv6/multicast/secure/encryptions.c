@@ -4,7 +4,7 @@
 
 #include "encryptions.h"
 #include "common_engine.h"
-#include "common.h"
+#include "helpers.h"
 #include "errors.h"
 
 #define DEBUG DEBUG_PRINT

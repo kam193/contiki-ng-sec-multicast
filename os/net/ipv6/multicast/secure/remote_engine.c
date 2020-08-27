@@ -19,7 +19,7 @@
 #include "common_engine.h"
 #include "encryptions.h"
 #include "authorization.h"
-#include "common.h"
+#include "helpers.h"
 
 #define DEBUG DEBUG_PRINT
 #include "net/ipv6/uip-debug.h"
