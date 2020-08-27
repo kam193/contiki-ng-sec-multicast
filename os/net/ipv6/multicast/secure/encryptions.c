@@ -92,9 +92,41 @@ int
 aes_cbc_copy_descriptor(struct sec_certificate *dest, struct sec_certificate *src)
 {
   dest->secure_descriptor = malloc(sizeof(struct secure_descriptor));
-  if (dest->secure_descriptor == NULL){
-      return ERR_MEMORY;
+  if(dest->secure_descriptor == NULL) {
+    return ERR_MEMORY;
   }
   memcpy(dest->secure_descriptor, src->secure_descriptor, sizeof(struct secure_descriptor));
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+/* Functions used on coordinator */
+/*---------------------------------------------------------------------------*/
+int
+init_aes_cbc_descriptor(struct sec_certificate *descriptor)
+{
+  descriptor->secure_descriptor = malloc(sizeof(struct secure_descriptor));
+  if(descriptor->secure_descriptor == NULL) {
+    return ERR_MEMORY;
+  }
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+int
+aes_cbc_descriptor_to_bytes(struct sec_certificate *cert, uint8_t *buff, uint32_t *size)
+{
+  if(sizeof(struct secure_descriptor) > *size) {
+    return ERR_RESULT_TOO_LONG;
+  }
+  memcpy(buff, cert->secure_descriptor, sizeof(struct secure_descriptor));
+  *size = sizeof(struct secure_descriptor);
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+int
+aes_cbc_refresh_key(struct sec_certificate *key_descriptor)
+{
+  struct secure_descriptor *key_desc = key_descriptor->secure_descriptor;
+  generate_random_chars(key_desc->aes_key, sizeof(key_desc->aes_key));
+  generate_random_chars(key_desc->aes_vi, sizeof(key_desc->aes_vi));
   return 0;
 }

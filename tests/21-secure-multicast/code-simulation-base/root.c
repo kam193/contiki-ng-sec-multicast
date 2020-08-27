@@ -7,7 +7,7 @@
 #include "net/ipv6/multicast/secure/engine.h"
 #include "net/ipv6/multicast/secure/authorization.h"
 #include "net/ipv6/multicast/secure/remote_engine.h"
-
+#include "net/ipv6/multicast/secure/server.h"
 
 #include "certs.h"
 

@@ -25,7 +25,6 @@
 #include "net/ipv6/uip-debug.h"
 #include "tmp_debug.h"
 
-#define REQUEST_LEN_MIN 2 + 32
 #define MAX_ANSWER_LENGTH 1000
 
 struct secured_group {
@@ -38,36 +37,15 @@ typedef struct secured_group secured_group_t;
 secured_group_t groups[SEC_MAX_SECURED_GROUPS];
 static size_t free_group_places = SEC_MAX_SECURED_GROUPS;
 
-static struct simple_udp_connection cert_exch;
-static uint8_t buffer[MAX_ANSWER_LENGTH];
-static uint8_t second_buffer[MAX_ANSWER_LENGTH];
-
 /*---------------------------------------------------------------------------*/
 /* KEY GENERATION HELPERS */
-/*---------------------------------------------------------------------------*/
-static void
-generate_random_chars(uint8_t *dest, size_t length)
-{
-  while(length > 0) {
-    dest[length - 1] = (uint8_t)(random_rand() % 256);
-    length--;
-  }
-}
-static int
-recreate_aes_cbc_key(secured_group_t *group_descriptor)
-{
-  struct secure_descriptor *key_desc = group_descriptor->key_descriptor.secure_descriptor;
-  generate_random_chars(key_desc->aes_key, sizeof(key_desc->aes_key));
-  generate_random_chars(key_desc->aes_vi, sizeof(key_desc->aes_vi));
-  return 0;
-}
 /*---------------------------------------------------------------------------*/
 static int
 recreate_group_key(secured_group_t *group_descriptor)
 {
   switch(group_descriptor->key_descriptor.mode) {
   case SEC_MODE_AES_CBC:
-    CHECK_0(recreate_aes_cbc_key(group_descriptor));
+    CHECK_0(aes_cbc_refresh_key(&group_descriptor->key_descriptor));
     break;
 
   default:
@@ -119,10 +97,10 @@ get_group_secure_description(const uip_ipaddr_t *group_addr, struct sec_certific
 /* Decode cert to chain of byte: ADDR | MODE | VALID_UNTIL | <descriptor> */
 /* Descriptor depends of MODE and basically is a chain of fields */
 /*---------------------------------------------------------------------------*/
-static int
+int
 encode_cert_to_byte(struct sec_certificate *cert, uint32_t requestor_time, uint8_t *buff, uint32_t *size)
 {
-  uint32_t result_size = 0;
+  uint32_t result_size = 0, descriptor_size = 0;
 
   /* Copy header */
   if(result_size + sizeof(uip_ip6addr_t) + 1 > *size) {
@@ -136,162 +114,22 @@ encode_cert_to_byte(struct sec_certificate *cert, uint32_t requestor_time, uint8
   result_size += sizeof(uint32_t);
 
   /* Copy descriptor depends of mode */
+  descriptor_size = *size - result_size;
   switch(cert->mode) {
   case SEC_MODE_AES_CBC:
-    if(result_size + sizeof(struct secure_descriptor) > *size) {
-      return 1;
-    }
-    memcpy(buff + result_size, cert->secure_descriptor, sizeof(struct secure_descriptor));
-    result_size += sizeof(struct secure_descriptor);
+    CHECK_0(aes_cbc_descriptor_to_bytes(cert, buff + result_size, &descriptor_size));
     break;
 
   default:
     return -2;
   }
 
-  *size = result_size;
-  return 0;
-}
-/*---------------------------------------------------------------------------*/
-static void
-rp_public_cert_request_handler(const uip_ipaddr_t *sender_addr,
-                               uint16_t sender_port,
-                               const uint8_t *data,
-                               uint16_t datalen)
-{
-  if(datalen != 1) {
-    return;
-  }
-  uint16_t out_size = sizeof(buffer);
-  buffer[0] = CE_RP_PUB_ANSWER;
-  if(certexch_encode_cert(buffer + 2, &out_size, certexch_own_pub_cert()) != 0) {
-    PRINTF("Failed encoding RP PUB\n");
-    return;
-  }
-  buffer[1] = out_size;
-  PRINTF("CertExch: Sending RP pub answer to ");
-  PRINT6ADDR(sender_addr);
-  PRINTF("\n");
-  simple_udp_sendto(&cert_exch, buffer, out_size + 2, sender_addr);
-}
-/*---------------------------------------------------------------------------*/
-static void
-ce_request_handler(const uip_ipaddr_t *sender_addr,
-                   uint16_t sender_port,
-                   const uint8_t *data,
-                   uint16_t datalen)
-{
-  struct sec_certificate *cert;
-  struct ce_certificate client_cert;
-  if(datalen < REQUEST_LEN_MIN) {
-    PRINTF("CertExch: Invalid message, skipped\n");
-    return;
-  }
-
-  uint8_t cert_len = data[1];
-  if(certexch_decode_cert(&client_cert, data + (datalen - cert_len), cert_len) != 0) {
-    PRINTF("Decoding client cert failed\n");
-    return;
-  }
-
-  if(certexch_verify_cert(&client_cert) != 0) {
-    PRINTF("Failed verify client cert\n");
-    return;
-  }
-
-  uint8_t tmp[32];
-  uint32_t out_size = sizeof(tmp);
-  if(certexch_decode_data(tmp, &out_size, data + 2, datalen - cert_len - 2, &client_cert) != 0) {
-    PRINTF("Decripting failed\n");
-    return;
-  }
-
-  uip_ip6addr_t mcast_addr;
-  memcpy(&mcast_addr, tmp + TIMESTAMP_SIZE, sizeof(uip_ip6addr_t));
-
-  unsigned long request_timestamp;
-  memcpy(&request_timestamp, tmp, TIMESTAMP_SIZE);
-  PRINTF("CertExch: GOT REQUEST FOR: ");
-  PRINT6ADDR(&mcast_addr);
-  PRINTF("\n");
-
-  if(get_group_secure_description(&mcast_addr, &cert) != 0) {
-    PRINTF("CertExch: Requested cert not found\n");
-    return;
-  }
-  PRINTF("CertExch: Sending cert answer to ");
-  PRINT6ADDR(sender_addr);
-  PRINTF("\n");
-
-  out_size = sizeof(second_buffer);
-  memset(second_buffer, 0, out_size);
-  if(encode_cert_to_byte(cert, request_timestamp, second_buffer, &out_size) != 0) {
-    PRINTF("Encoding cert failed\n");
-    return;
-  }
-  out_size = certexch_count_padding(out_size);
-  /* TODO: set padding to buffer */
-  uint32_t response_len = sizeof(buffer) - 1;
-  if(certexch_encode_data(buffer + 1, &response_len, second_buffer, out_size, &client_cert) != 0) {
-    PRINTF("Encrypt response failed\n");
-    return;
-  }
-
-  buffer[0] = CERT_EXCHANGE_ANSWER;
-  response_len += 1;
-  simple_udp_sendto(&cert_exch, buffer, response_len, sender_addr);
-  free_ce_certificate(&client_cert);
-}
-/*---------------------------------------------------------------------------*/
-static void
-cert_request_callback(struct simple_udp_connection *c,
-                      const uip_ipaddr_t *sender_addr,
-                      uint16_t sender_port,
-                      const uip_ipaddr_t *receiver_addr,
-                      uint16_t receiver_port,
-                      const uint8_t *data,
-                      uint16_t datalen)
-{
-
-  request_handler_t handler;
-
-  uint8_t type = *(data);
-  switch(type) {
-  case CERT_EXCHANGE_REQUEST:
-    handler = ce_request_handler;
-    break;
-
-  case CE_RP_PUB_REQUEST:
-    handler = rp_public_cert_request_handler;
-    break;
-
-  default:
-    PRINTF("Invalid message type, skiped\n");
-    return;
-  }
-
-  handler(sender_addr, sender_port, data, datalen);
-}
-/*---------------------------------------------------------------------------*/
-int
-init_cert_server()
-{
-  simple_udp_register(&cert_exch, RP_CERT_SERVER_PORT, NULL,
-                      CERT_ANSWER_PORT, cert_request_callback);
+  *size = result_size + descriptor_size;
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 /* KEY DESCRIPTORS INITIALIZERS */
 /*---------------------------------------------------------------------------*/
-static int
-init_aes_cbc_descriptor(struct sec_certificate *descriptor)
-{
-  descriptor->secure_descriptor = malloc(sizeof(struct secure_descriptor));
-  if(descriptor->secure_descriptor == NULL) {
-    return ERR_OTHER;
-  }
-  return 0;
-}
 /* Create key descriptor for group */
 int
 init_key_descriptor(struct sec_certificate *descriptor, uip_ip6addr_t *maddr, uint16_t mode)
