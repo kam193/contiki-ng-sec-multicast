@@ -28,6 +28,8 @@
 #define CE_RP_PUB_REQUEST     3
 #define CE_RP_PUB_ANSWER      4
 
+#define TIMESTAMP_SIZE        4
+
 /* Structures */
 
 struct sec_certificate {    // group_security_descriptor

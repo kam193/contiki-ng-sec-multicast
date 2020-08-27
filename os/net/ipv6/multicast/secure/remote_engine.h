@@ -9,7 +9,7 @@
 #ifndef RP_H_
 #define RP_H_
 
-#include "engine.h"
+#include "common_engine.h"
 
 #ifndef SEC_MAX_SECURED_GROUPS
 #define SEC_MAX_SECURED_GROUPS 10

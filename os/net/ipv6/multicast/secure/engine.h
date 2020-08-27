@@ -28,7 +28,6 @@
 #define SEC_MAX_QUEUE_SIZE 5
 #endif
 
-#define TIMESTAMP_SIZE        4
 #define KEY_REQUEST_DATA_SIZE (TIMESTAMP_SIZE + sizeof(uip_ip6addr_t))
 
 /* When retry get cert */

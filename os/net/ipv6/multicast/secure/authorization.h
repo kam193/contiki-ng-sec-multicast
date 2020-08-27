@@ -18,11 +18,6 @@
 #define CE_PUB_RP_CERT      1
 #define CE_PUB_CLIENT_CERT  2
 
-typedef void (*request_handler_t)(const uip_ipaddr_t *sender_addr,
-                                  uint16_t sender_port,
-                                  const uint8_t *data,
-                                  uint16_t datalen);
-
 struct ca_cert {
   uint16_t size;
   uint8_t *pub;
@@ -50,10 +45,10 @@ int certexch_encode_cert(uint8_t *dest_data, uint16_t *dest_len, const struct ce
 
 int certexch_encode_data(uint8_t *dest_data, uint32_t *dest_len,
                          const uint8_t *src_data, uint32_t src_len,
-                         const struct ce_certificate *receiver_pub);
+                         const struct ce_certificate *receiver_pub); // encrypt
 int certexch_decode_data(uint8_t *dest_data, uint32_t *dest_len,
                          const uint8_t *src_data, uint32_t src_len,
-                         const struct ce_certificate *sender_pub);
+                         const struct ce_certificate *sender_pub); // decrypt
 uint8_t certexch_count_padding(uint8_t size);
 
 void free_ce_certificate(struct ce_certificate *cert);
