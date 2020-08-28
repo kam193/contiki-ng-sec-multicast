@@ -1,0 +1,69 @@
+/* Based on one of examples */
+
+#include "contiki.h"
+#include "contiki-lib.h"
+#include "contiki-net.h"
+#include "net/ipv6/multicast/uip-mcast6.h"
+#include "net/ipv6/multicast/secure/engine.h"
+#include "net/ipv6/multicast/secure/end_device.h"
+#include "random.h"
+
+#include "../certs.h"
+#include "../utils.h"
+
+#include <string.h>
+
+#define DEBUG DEBUG_PRINT
+#include "net/ipv6/uip-debug.h"
+
+static struct uip_udp_conn *mcast_net_1;
+
+/* Start sending messages START_DELAY secs after we start so that routing can
+ * converge */
+#define START_DELAY 30
+
+/*---------------------------------------------------------------------------*/
+PROCESS(sender, "Multicast Sender Network A");
+AUTOSTART_PROCESSES(&sender);
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(sender, ev, data)
+{
+  PROCESS_BEGIN();
+
+  static struct etimer timer;
+  etimer_set(&timer, 200);
+
+  prepare_mcast(&NETWORK_A, &mcast_net_1);
+
+  FAIL_NOT_0(auth_import_ca_cert(&ca));
+  FAIL_NOT_0(auth_import_own_cert(&c2_private_cert));
+
+  uip_ipaddr_t root_addr;
+  while(1) {
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+    if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&root_addr)) {
+      FAIL_NOT_0(get_rp_cert());
+      break;
+    }
+    etimer_set(&timer, 200);
+  }
+
+  /* Since get_rp_cert is not-blocking */
+  etimer_set(&timer, 2 * CLOCK_SECOND);
+  PROCESS_YIELD_UNTIL(etimer_expired(&timer));
+  etimer_stop(&timer);
+
+  etimer_set(&timer, START_DELAY * CLOCK_SECOND);
+  while(1) {
+    PROCESS_YIELD();
+    if(etimer_expired(&timer)) {
+      multicast_send(mcast_net_1, "this_is_test", 12);
+      break;
+    }
+  }
+
+  SIMPRINTF("[DONE]\n");
+
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/
