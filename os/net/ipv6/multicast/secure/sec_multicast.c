@@ -27,6 +27,19 @@ static unsigned char buffer[UIP_BUFSIZE];
 extern uint16_t uip_slen;
 
 static void
+recalculate_udp_checksum()
+{
+  UIP_UDP_BUF->udpchksum = 0;
+
+#if UIP_UDP_CHECKSUMS
+  UIP_UDP_BUF->udpchksum = ~(uip_udpchksum());
+  if(UIP_UDP_BUF->udpchksum == 0) {
+    UIP_UDP_BUF->udpchksum = 0xffff;
+  }
+#endif /* UIP_UDP_CHECKSUMS */
+}
+/*---------------------------------------------------------------------------*/
+static void
 init()
 {
   SEC_MULTICAST_BASE_DRIVER.init();
@@ -45,6 +58,7 @@ out(void)
     uip_len = UIP_IPUDPH_LEN + data_len;
     uipbuf_set_len_field(UIP_IP_BUF, uip_len - UIP_IPH_LEN);
     UIP_UDP_BUF->udplen = UIP_HTONS(data_len + UIP_UDPH_LEN);
+    recalculate_udp_checksum();
   } else {
     uip_slen = 0;
     uipbuf_clear();
@@ -71,6 +85,7 @@ in()
       uip_len = UIP_IPUDPH_LEN + data_len;
       uipbuf_set_len_field(UIP_IP_BUF, uip_len - UIP_IPH_LEN);
       UIP_UDP_BUF->udplen = UIP_HTONS(data_len + UIP_UDPH_LEN);
+      recalculate_udp_checksum();
     } else {
       return UIP_MCAST6_DROP;
     }
