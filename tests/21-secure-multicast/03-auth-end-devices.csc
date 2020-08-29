@@ -23,7 +23,7 @@
       org.contikios.cooja.contikimote.ContikiMoteType
       <identifier>mtype843</identifier>
       <description>Root</description>
-      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-functional-tests/01-send_messages/root.c</source>
+      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-simulations-tests/01-send_messages/root.c</source>
       <commands>make root.cooja TARGET=cooja</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
@@ -48,7 +48,7 @@
       org.contikios.cooja.contikimote.ContikiMoteType
       <identifier>mtype946</identifier>
       <description>Sender</description>
-      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-functional-tests/01-send_messages/sender.c</source>
+      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-simulations-tests/01-send_messages/sender.c</source>
       <commands>make sender.cooja TARGET=cooja</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
@@ -73,7 +73,7 @@
       org.contikios.cooja.contikimote.ContikiMoteType
       <identifier>mtype201</identifier>
       <description>Receiver 1</description>
-      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-functional-tests/01-send_messages/receiver.c</source>
+      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-simulations-tests/01-send_messages/receiver.c</source>
       <commands>make receiver.cooja TARGET=cooja</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
@@ -98,7 +98,7 @@
       org.contikios.cooja.contikimote.ContikiMoteType
       <identifier>mtype945</identifier>
       <description>Receiver with the wrong cert</description>
-      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-functional-tests/03-auth-end-devices/receiver_wrong_auth.c</source>
+      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-simulations-tests/03-auth-end-devices/receiver_wrong_auth.c</source>
       <commands>make receiver_wrong_auth.cooja TARGET=cooja</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>

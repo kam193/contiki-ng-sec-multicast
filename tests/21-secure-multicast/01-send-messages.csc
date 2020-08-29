@@ -23,7 +23,7 @@
       org.contikios.cooja.contikimote.ContikiMoteType
       <identifier>mtype584</identifier>
       <description>Root</description>
-      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-functional-tests/01-send_messages/root.c</source>
+      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-simulations-tests/01-send_messages/root.c</source>
       <commands>make root.cooja TARGET=cooja</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
@@ -48,7 +48,7 @@
       org.contikios.cooja.contikimote.ContikiMoteType
       <identifier>mtype766</identifier>
       <description>Sender</description>
-      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-functional-tests/01-send_messages/sender.c</source>
+      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-simulations-tests/01-send_messages/sender.c</source>
       <commands>make sender.cooja TARGET=cooja</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
@@ -73,7 +73,7 @@
       org.contikios.cooja.contikimote.ContikiMoteType
       <identifier>mtype652</identifier>
       <description>Receiver 1</description>
-      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-functional-tests/01-send_messages/receiver.c</source>
+      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-simulations-tests/01-send_messages/receiver.c</source>
       <commands>make receiver.cooja TARGET=cooja</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
@@ -98,7 +98,7 @@
       org.contikios.cooja.contikimote.ContikiMoteType
       <identifier>mtype334</identifier>
       <description>Receiver 2</description>
-      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-functional-tests/01-send_messages/receiver_2.c</source>
+      <source>[CONTIKI_DIR]/tests/21-secure-multicast/code-simulations-tests/01-send_messages/receiver_2.c</source>
       <commands>make receiver_2.cooja TARGET=cooja</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
