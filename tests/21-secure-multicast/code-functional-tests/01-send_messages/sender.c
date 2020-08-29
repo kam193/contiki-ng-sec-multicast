@@ -38,20 +38,9 @@ PROCESS_THREAD(sender, ev, data)
   FAIL_NOT_0(auth_import_ca_cert(&ca));
   FAIL_NOT_0(auth_import_own_cert(&c2_private_cert));
 
-  uip_ipaddr_t root_addr;
-  while(1) {
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
-    if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&root_addr)) {
-      FAIL_NOT_0(get_rp_cert());
-      break;
-    }
-    etimer_set(&timer, 200);
-  }
+  FAIL_NOT_0(get_rp_cert());
 
-  /* Since get_rp_cert is not-blocking */
-  etimer_set(&timer, 2 * CLOCK_SECOND);
-  PROCESS_YIELD_UNTIL(etimer_expired(&timer));
-  etimer_stop(&timer);
+  WAIT_UNTIL_ROOT_CERT();
 
   etimer_set(&timer, START_DELAY * CLOCK_SECOND);
   while(1) {

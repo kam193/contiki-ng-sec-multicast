@@ -52,23 +52,10 @@ PROCESS_THREAD(mcast_sink_process, ev, data)
 
   /* First, use a proper CA to get root cert */
   FAIL_NOT_0(auth_import_ca_cert(&ca));
+  FAIL_NOT_0(get_rp_cert());
 
   static struct etimer timer;
-  etimer_set(&timer, 200);
-
-  uip_ipaddr_t root_addr;
-  while(1) {
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
-    if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&root_addr)) {
-      FAIL_NOT_0(get_rp_cert());
-      break;
-    }
-    etimer_set(&timer, 200);
-  }
-
-  /* Wait for the root cert */
-  etimer_set(&timer, 2 * CLOCK_SECOND);
-  PROCESS_YIELD_UNTIL(etimer_expired(&timer));
+  WAIT_UNTIL_ROOT_CERT();
 
   /* Now use a second CA and incorrect own cert */
   FAIL_NOT_0(auth_import_ca_cert(&alternative_ca));

@@ -34,26 +34,11 @@ PROCESS_THREAD(mcast_sink_process, ev, data)
   sink_conn = udp_new(NULL, UIP_HTONS(0), NULL);
   udp_bind(sink_conn, UIP_HTONS(MCAST_SINK_UDP_PORT));
 
-  static struct etimer periodic_timer;
-  etimer_set(&periodic_timer, 200);
-
   FAIL_NOT_0(auth_import_ca_cert(&ca));
   FAIL_NOT_0(auth_import_own_cert(&c4_private_cert));
+  FAIL_NOT_0(get_rp_cert());
 
-  uip_ipaddr_t root_addr;
-  while(1) {
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-    if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&root_addr)) {
-      FAIL_NOT_0(get_rp_cert());
-      break;
-    }
-    etimer_set(&periodic_timer, 200);
-  }
-
-  /* Since get_rp_cert is not-blocking */
-  etimer_set(&periodic_timer, 2 * CLOCK_SECOND);
-  PROCESS_YIELD_UNTIL(etimer_expired(&periodic_timer));
-  etimer_stop(&periodic_timer);
+  WAIT_UNTIL_ROOT_CERT();
 
   while(1) {
     PROCESS_YIELD();

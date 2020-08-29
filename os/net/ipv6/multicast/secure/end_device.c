@@ -22,11 +22,16 @@
 #include "encryptions.h"
 #include "end_device.h"
 
+#define RETRY_PAUSE 500
+#define MAX_RETRY   5
+
 static device_cert_t *rp_pub_cert = NULL;
 static struct simple_udp_connection certexch_conn;
 bool initialized = false;
 
 extern uint8_t buffer[UIP_BUFSIZE];
+
+PROCESS(get_root_cert, "Get root cert");
 
 /*---------------------------------------------------------------------------*/
 int
@@ -177,8 +182,83 @@ send_request_group_key(const uip_ip6addr_t *mcast_addr)
 int
 get_rp_cert()
 {
+  if(process_is_running(&get_root_cert)) {
+    process_exit(&get_root_cert);
+  }
+
+  free_root_cert();
+
+  process_start(&get_root_cert, NULL);
+  PRINTF("Starting requesting root cert\n");
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+void
+free_root_cert()
+{
+  if(is_root_cert()) {
+    free(rp_pub_cert);
+    rp_pub_cert = NULL;
+  }
+}
+/*---------------------------------------------------------------------------*/
+bool
+is_root_cert()
+{
+  return rp_pub_cert != NULL;
+}
+/*---------------------------------------------------------------------------*/
+static void
+send_root_cert_request()
+{
   uint8_t data = CE_RP_PUB_REQUEST;
   send_to_coordinator(&data, 1);
   PRINTF("CertExch: Send request for RP pub cert\n");
-  return 0;
+}
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(get_root_cert, ev, data)
+{
+  static struct etimer timer;
+  static int retries;
+
+  PROCESS_BEGIN();
+  retries = 0;
+
+  /* FIRST, ensure root is reachable. This can take a quite long time */
+  uip_ipaddr_t root_addr;
+  while(1) {
+    if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&root_addr)) {
+      break;
+    }
+    if(retries >= 10 * MAX_RETRY) {
+      PRINTF("Cannot get root address, giving up after %d\n", retries);
+      PROCESS_EXIT();
+    }
+    ++retries;
+    etimer_set(&timer, 2 * RETRY_PAUSE);
+    PROCESS_YIELD_UNTIL(etimer_expired(&timer));
+  }
+  PRINTF("Root is reachable\n");
+
+  /* Now, get the certificate */
+  retries = 0;
+  send_root_cert_request();
+  etimer_set(&timer, RETRY_PAUSE);
+
+  while(1) {
+    PROCESS_YIELD_UNTIL(etimer_expired(&timer));
+    if(is_root_cert()) {
+      PRINTF("Root cert got, finishing\n");
+      break;
+    }
+    if(retries > MAX_RETRY) {
+      PRINTF("Cannot get root cert. Giving up\n");
+      break;
+    }
+    ++retries;
+    PRINTF("Sending retry %d request root cert\n", retries);
+    send_root_cert_request();
+    etimer_set(&timer, RETRY_PAUSE);
+  }
+  PROCESS_END();
 }
