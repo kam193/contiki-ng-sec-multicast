@@ -137,8 +137,7 @@ int
 queue_in_packet()
 {
   cert_exchange_init();
-  size_t i = 0;
-  for(; i < SEC_MAX_QUEUE_SIZE; ++i) {
+  for(size_t i = 0; i < SEC_MAX_QUEUE_SIZE; ++i) {
     if(in_queue[i].len == 0) {
       memcpy(in_queue[i].data, &uip_buf, uip_len);
       in_queue[i].len = uip_len;
@@ -272,6 +271,7 @@ static int
 decrypt_message(struct sec_certificate *cert, uint8_t *message, uint16_t message_len,
                 unsigned char *out_buffer, uint32_t *out_len)
 {
+  uint32_t max_length = *out_len;
   switch(cert->mode) {
   case SEC_MODE_AES_CBC:
     CHECK_0(aes_cbc_decrypt(cert, message, message_len, out_buffer, out_len));
@@ -283,7 +283,7 @@ decrypt_message(struct sec_certificate *cert, uint8_t *message, uint16_t message
 
   /* Get len of original message and remove it from the packet */
   uint16_t original_length = *(uint16_t *)(out_buffer);
-  for(size_t i = 0; i < original_length; ++i) {
+  for(size_t i = 0; i < MIN(original_length, max_length - sizeof(uint16_t)); ++i) {
     out_buffer[i] = out_buffer[i + sizeof(uint16_t)];
   }
   *out_len = original_length;
@@ -319,9 +319,9 @@ delivery_in_packet(size_t i)
   memcpy(&uip_buf, in_queue[i].data, in_queue[i].len);
   uip_len = in_queue[i].len;
   PRINTF("Delivery queued packet. Time waiting: %d\n", clock_time() - in_queue[i].time_cached);
-  uip_process(UIP_DATA);
   in_queue[i].len = 0;
   in_queue_free += 1;
+  uip_process(UIP_DATA);
 }
 /* New group key was delivered - check if can process packets from IN queue */
 static void
