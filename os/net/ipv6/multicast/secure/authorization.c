@@ -1,6 +1,6 @@
 /**
  * \file
- *         This file provides funtions for certificate exchange process
+ *         This file provides funtions for authorization based on certificates
  *
  * \author  Kamil Mańkowski
  *
@@ -42,6 +42,7 @@ auth_copy_pub_cert(device_cert_t *dest, const device_cert_t *src)
   /* Copy header */
   memcpy(dest, src, 19);
   dest->priv_len = 0;
+  dest->priv = NULL;
 
   dest->pub = malloc(dest->pub_len);
   memcpy(dest->pub, src->pub, dest->pub_len);
@@ -50,6 +51,12 @@ auth_copy_pub_cert(device_cert_t *dest, const device_cert_t *src)
   memcpy(dest->signature, src->signature, dest->signature_len);
 
   return 0;
+}
+/*---------------------------------------------------------------------------*/
+bool
+is_auth_ca_cert()
+{
+  return wc_ecc_check_key(&ca_pub) == 0;
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -62,7 +69,9 @@ auth_import_ca_cert(const ca_cert_t *cert)
 int
 auth_verify_cert(const device_cert_t *cert)
 {
-  /* CHECK_1(ca_pub.state != 0); // TODO: check if CA created */
+  if(!is_auth_ca_cert()) {
+    return ERR_NOT_INITIALIZED;
+  }
   int verification_result = 0;
   uint8_t hash[CERT_HASH_LEN];
 
@@ -73,7 +82,7 @@ auth_verify_cert(const device_cert_t *cert)
   if(verification_result == 1) {
     return 0;
   }
-  return -1;
+  return ERR_VERIFY_FAILED;
 }
 int
 auth_import_own_cert(const device_cert_t *cert)
@@ -90,6 +99,9 @@ auth_import_own_cert(const device_cert_t *cert)
 const device_cert_t *
 auth_own_pub_cert()
 {
+  if(own_pub.pub_len == 0 || wc_ecc_check_key(&own_key) != 0) {
+    return NULL;
+  }
   return &own_pub;
 }
 void
@@ -99,17 +111,24 @@ auth_free_device_cert(device_cert_t *cert)
     free(cert->pub);
     cert->pub = NULL;
   }
-  /* if(cert->priv) { */
-  /*   free(cert->priv); */
-  /*   cert->pub = NULL; */
-  /* } */
+  if(cert->priv) {
+    free(cert->priv);
+    cert->pub = NULL;
+  }
   if(cert->signature) {
     free(cert->signature);
-    cert->pub = NULL;
+    cert->signature = NULL;
   }
   cert->pub_len = 0;
   cert->signature_len = 0;
   cert->priv_len = 0;
+}
+void
+auth_free_service()
+{
+  auth_free_device_cert(&own_pub);
+  wc_ecc_free(&ca_pub);
+  wc_ecc_free(&own_key);
 }
 /*---------------------------------------------------------------------------*/
 /* ENCRYPTION BASED ON CERTS */
@@ -125,8 +144,8 @@ auth_count_padding(uint8_t size)
 }
 int
 auth_encrypt_data(uint8_t *dest_data, uint32_t *dest_len,
-                     const uint8_t *src_data, uint32_t src_len,
-                     const device_cert_t *receiver_pub)
+                  const uint8_t *src_data, uint32_t src_len,
+                  const device_cert_t *receiver_pub)
 {
   ecc_key receiver;
   CHECK_0(wc_ecc_init(&receiver));
@@ -142,8 +161,8 @@ auth_encrypt_data(uint8_t *dest_data, uint32_t *dest_len,
 }
 int
 auth_decrypt_data(uint8_t *dest_data, uint32_t *dest_len,
-                     const uint8_t *src_data, uint32_t src_len,
-                     const device_cert_t *sender_pub)
+                  const uint8_t *src_data, uint32_t src_len,
+                  const device_cert_t *sender_pub)
 {
   ecc_key sender;
   CHECK_0(wc_ecc_init(&sender));
@@ -176,6 +195,9 @@ auth_decode_cert(device_cert_t *dest_cert, const uint8_t *src_data, uint16_t src
   part_size += dest_cert->pub_len;
   dest_cert->signature = malloc(dest_cert->signature_len);
   memcpy(dest_cert->signature, src_data + part_size, dest_cert->signature_len);
+
+  dest_cert->priv_len = 0;
+  dest_cert->priv = NULL;
   return 0;
 }
 /*---------------------------------------------------------------------------*/

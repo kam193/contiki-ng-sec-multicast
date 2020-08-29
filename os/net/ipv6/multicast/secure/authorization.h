@@ -41,6 +41,7 @@ int auth_import_ca_cert(const ca_cert_t *cert);
 int auth_verify_cert(const device_cert_t *cert);
 int auth_import_own_cert(const device_cert_t *cert);
 const device_cert_t *auth_own_pub_cert();
+bool is_auth_ca_cert();
 
 int auth_decode_cert(device_cert_t *dest_cert, const uint8_t *src_data, uint16_t src_len);
 int auth_encode_cert(uint8_t *dest_data, uint16_t *dest_len, const device_cert_t *src_cert);
@@ -53,7 +54,9 @@ int auth_decrypt_data(uint8_t *dest_data, uint32_t *dest_len,
                          const device_cert_t *sender_pub);
 uint8_t auth_count_padding(uint8_t size);
 
-void auth_free_device_cert(device_cert_t *cert);
 int auth_copy_pub_cert(device_cert_t *dest, const device_cert_t *src);
+
+void auth_free_device_cert(device_cert_t *cert);
+void auth_free_service();
 
 #endif

@@ -14,6 +14,8 @@
 #define ERR_MEMORY           -2
 #define ERR_INCORRECT_DATA   -3
 #define ERR_RESULT_TOO_LONG  -4
+#define ERR_VERIFY_FAILED    -5
+#define ERR_NOT_INITIALIZED  -6
 
 #define ERR_GROUP_NOT_KNOWN   1
 #define ERR_NEED_REFRESH_CERT 2

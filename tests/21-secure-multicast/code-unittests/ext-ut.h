@@ -4,6 +4,10 @@
 #include "contiki.h"
 #include "services/unit-test/unit-test.h"
 
+#define ASSERT_0(expr) UNIT_TEST_ASSERT((expr) == 0);
+#define ASSERT_TRUE(expr) UNIT_TEST_ASSERT((expr) == true);
+#define ASSERT_FALSE(expr) UNIT_TEST_ASSERT((expr) == false);
+
 #ifdef EXT_SETUP_FUNCTION
 #define EXT_SETUP() EXT_SETUP_FUNCTION();
 void EXT_SETUP_FUNCTION();
