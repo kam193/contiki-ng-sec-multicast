@@ -37,16 +37,7 @@
 PROCESS(run_tests, "Unit tests process");
 AUTOSTART_PROCESSES(&run_tests);
 /*---------------------------------------------------------------------------*/
-void
-print_test_report(const unit_test_t *utp)
-{
-  printf("[=check-me=] %s... ", utp->descr);
-  if(utp->result == unit_test_failure) {
-    printf("FAILED at line %u\n", utp->exit_line);
-  } else {
-    printf("SUCCEEDED\n");
-  }
-}
+
 /*---------------------------------------------------------------------------*/
 UNIT_TEST_REGISTER(test_example, "Example unit test");
 UNIT_TEST(test_example)

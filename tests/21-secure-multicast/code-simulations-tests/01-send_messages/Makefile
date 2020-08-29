@@ -1,4 +1,4 @@
-CONTIKI_PROJECT = root sink receiver receiver_2
+CONTIKI_PROJECT = root sender receiver receiver_2
 all: $(CONTIKI_PROJECT)
 
 PROJECT_SOURCEFILES += ../utils.c
