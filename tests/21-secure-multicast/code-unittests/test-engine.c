@@ -31,6 +31,7 @@
 /*---------------------------------------------------------------------------*/
 #include "contiki.h"
 #include "os/net/ipv6/multicast/secure/authorization.h"
+#include "os/net/ipv6/multicast/secure/engine.h"
 
 #include <stdio.h>
 
@@ -40,10 +41,9 @@
 #define EXT_TEARDOWN_FUNCTION teardown
 #include "ext-ut.h"
 
-static char module[] = "AUTHORIZATION";
+static char module[] = "ENGINE";
 
-static uint8_t buff[100];
-static uint8_t msg[] = "msg";
+static uint8_t buffer[100];
 
 /* TODO: setup & teardown */
 /*---------------------------------------------------------------------------*/
@@ -57,99 +57,41 @@ setup()
 void
 teardown()
 {
-  auth_free_service();
+  /* auth_free_service(); */
 }
 /*---------------------------------------------------------------------------*/
-PROCESS(run_tests, "Unit tests for authorization module");
+PROCESS(run_tests, "Unit tests for engine module");
 AUTOSTART_PROCESSES(&run_tests);
 /*---------------------------------------------------------------------------*/
-UNIT_TEST_REGISTER(importing_ca, "Importing CA and work before it");
-UNIT_TEST(importing_ca)
+UNIT_TEST_REGISTER(cache_incoming, "Cache incoming packets");
+UNIT_TEST(cache_incoming)
 {
   UNIT_TEST_BEGIN();
 
-  ASSERT_0(auth_import_ca_cert(&ca));
-  ASSERT_TRUE(is_auth_ca_cert());
+  uint8_t msg[] = "nothing";
+  uint32_t len = sizeof(buffer);
 
-  auth_free_service();
-  ASSERT_FALSE(is_auth_ca_cert());
-  UNIT_TEST_ASSERT(auth_verify_cert(&c2_private_cert) == ERR_NOT_INITIALIZED);
-
-  /* TODO: not init for any method that use CA or so */
+  for(int i = 0; i < SEC_MAX_QUEUE_SIZE; ++i) {
+    UNIT_TEST_ASSERT(process_incoming_packet(&NETWORK_NOT_SUPPORTED, msg, sizeof(msg), buffer, &len) == DROP_PACKET);
+  }
 
   UNIT_TEST_END();
 }
 /*---------------------------------------------------------------------------*/
-UNIT_TEST_REGISTER(cert_verification, "Verify cert authentication");
-UNIT_TEST(cert_verification)
+UNIT_TEST_REGISTER(cache_outcomming, "Cache outcomming packets");
+UNIT_TEST(cache_outcomming)
 {
   UNIT_TEST_BEGIN();
 
-  ASSERT_0(auth_verify_cert(&rp_private_cert));
-  ASSERT_0(auth_verify_cert(&c2_private_cert));
+  uint8_t msg[] = "nothing";
+  uint32_t len = sizeof(buffer);
 
-  UNIT_TEST_ASSERT(auth_verify_cert(&alt_private_cert) == ERR_VERIFY_FAILED);
-
-  UNIT_TEST_END();
-}
-/*---------------------------------------------------------------------------*/
-UNIT_TEST_REGISTER(free_service, "Free service");
-UNIT_TEST(free_service)
-{
-  UNIT_TEST_BEGIN();
-
-  auth_free_service();
-  ASSERT_FALSE(is_auth_ca_cert());
-  UNIT_TEST_ASSERT(auth_own_pub_cert() == NULL);
+  for(int i = 0; i < SEC_MAX_QUEUE_SIZE; ++i) {
+    UNIT_TEST_ASSERT(process_outcomming_packet(&NETWORK_NOT_SUPPORTED, msg, sizeof(msg), buffer, &len) == DROP_PACKET);
+  }
 
   UNIT_TEST_END();
 }
-/*---------------------------------------------------------------------------*/
-UNIT_TEST_REGISTER(encrypt_invalid, "Encrypt when NULL receiver or no own key");
-UNIT_TEST(encrypt_invalid)
-{
-  UNIT_TEST_BEGIN();
-
-  /* NULL as receiver key */
-  uint32_t len = sizeof(buff);
-  UNIT_TEST_ASSERT(auth_encrypt_data(buff, &len, msg, sizeof(msg), NULL) == ERR_INCORRECT_DATA);
-
-  /* No own key */
-  auth_free_service();
-  len = sizeof(buff);
-  UNIT_TEST_ASSERT(auth_encrypt_data(buff, &len, msg, sizeof(msg), &c3_private_cert) == ERR_NOT_INITIALIZED);
-
-  UNIT_TEST_END();
-}
-/*---------------------------------------------------------------------------*/
-UNIT_TEST_REGISTER(decrypt_invalid, "Decrypt when NULL sender or no own key");
-UNIT_TEST(decrypt_invalid)
-{
-  UNIT_TEST_BEGIN();
-
-  /* NULL as sender key */
-  uint32_t len = sizeof(buff);
-  UNIT_TEST_ASSERT(auth_decrypt_data(buff, &len, msg, sizeof(msg), NULL) == ERR_INCORRECT_DATA);
-
-  /* No own key */
-  auth_free_service();
-  len = sizeof(buff);
-  UNIT_TEST_ASSERT(auth_decrypt_data(buff, &len, msg, sizeof(msg), &c3_private_cert) == ERR_NOT_INITIALIZED);
-
-  UNIT_TEST_END();
-}
-/*---------------------------------------------------------------------------*/
-/* UNIT_TEST_REGISTER(test_example_failed, "Example failing unit test"); */
-/* UNIT_TEST(test_example_failed) */
-/* { */
-/*   uint32_t value = 1; */
-
-/*   UNIT_TEST_BEGIN(); */
-
-/*   UNIT_TEST_ASSERT(value == 0); */
-
-/*   UNIT_TEST_END(); */
-/* } */
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(run_tests, ev, data)
 {
@@ -158,11 +100,8 @@ PROCESS_THREAD(run_tests, ev, data)
 
   printf("\n\t RUN UNIT TESTS for %s\n\n", module);
 
-  EXT_UT_RUN(cert_verification);
-  EXT_UT_RUN(importing_ca);
-  EXT_UT_RUN(free_service);
-  EXT_UT_RUN(encrypt_invalid);
-  EXT_UT_RUN(decrypt_invalid);
+  EXT_UT_RUN(cache_incoming);
+  EXT_UT_RUN(cache_outcomming);
 
   printf("[=check-me=] %s DONE\n", module);
 

@@ -1,9 +1,14 @@
 #include <stdio.h>
 #include <memory.h>
 
+#include "net/ipv6/uip-ds6.h"
+
 #include "ext-ut.h"
 
 static char module_name[MAX_MODULE_NAME + 1] = { 0 };
+
+uip_ipaddr_t NETWORK_A = { { 0xFF, 0x1E, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x89, 0xA0, 0x0D } };
+uip_ipaddr_t NETWORK_NOT_SUPPORTED = { { 0xFF, 0x1E, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x89, 0xA1, 0x1D } };
 
 void
 register_module_name(const char *name, int len)

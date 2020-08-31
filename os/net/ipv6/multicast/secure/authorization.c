@@ -147,6 +147,12 @@ auth_encrypt_data(uint8_t *dest_data, uint32_t *dest_len,
                   const uint8_t *src_data, uint32_t src_len,
                   const device_cert_t *receiver_pub)
 {
+  if(receiver_pub == NULL) {
+    return ERR_INCORRECT_DATA;
+  }
+  if(wc_ecc_check_key(&own_key) != 0) {
+    return ERR_NOT_INITIALIZED;
+  }
   ecc_key receiver;
   CHECK_0(wc_ecc_init(&receiver));
   CHECK_0(wc_ecc_import_x963(receiver_pub->pub, receiver_pub->pub_len, &receiver));
@@ -154,7 +160,7 @@ auth_encrypt_data(uint8_t *dest_data, uint32_t *dest_len,
   ret = wc_ecc_encrypt(&own_key, &receiver, src_data, src_len, dest_data, dest_len, NULL);
   if(ret != 0) {
     PRINTF("ENCODING ERROR %d\n", ret);
-    return -1;
+    return ERR_OTHER;
   }
   wc_ecc_free(&receiver);
   return 0;
@@ -164,6 +170,12 @@ auth_decrypt_data(uint8_t *dest_data, uint32_t *dest_len,
                   const uint8_t *src_data, uint32_t src_len,
                   const device_cert_t *sender_pub)
 {
+  if(sender_pub == NULL) {
+    return ERR_INCORRECT_DATA;
+  }
+  if(wc_ecc_check_key(&own_key) != 0) {
+    return ERR_NOT_INITIALIZED;
+  }
   ecc_key sender;
   CHECK_0(wc_ecc_init(&sender));
   CHECK_0(wc_ecc_import_x963(sender_pub->pub, sender_pub->pub_len, &sender));

@@ -81,7 +81,7 @@ PROCESS(secure_engine, "Secure engine");
 /* CERTIFICATE EXCHANGE                                                      */
 /*---------------------------------------------------------------------------*/
 int
-decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t size)
+decode_bytes_to_security_descriptor(struct sec_certificate *cert, const uint8_t *data, uint16_t size)
 {
   uint16_t decoded = 0;
   /* Decode header */
@@ -157,7 +157,7 @@ local_get_key(const uip_ip6addr_t *mcast_addr)
   PRINTF("\n");
   struct sec_certificate *certificate;
   CHECK_0(get_group_secure_description(mcast_addr, &certificate));
-  return add_cerificate(certificate);
+  return import_group_security_descriptor(certificate);
 }
 int
 get_certificate_for(const uip_ip6addr_t *mcast_addr)
@@ -207,9 +207,11 @@ copy_certificate(struct sec_certificate *dest, struct sec_certificate *src)
 /* Public functions - main features                                          */
 /*---------------------------------------------------------------------------*/
 int
-add_cerificate(struct sec_certificate *certificate)
+import_group_security_descriptor(struct sec_certificate *certificate)
 {
-  /* TODO: check if not exists yet */
+  if(get_certificate(&certificate->group_addr) != NULL) {
+    return ERR_GROUP_EXISTS;
+  }
 
   uint32_t current;
   for(current = 0; current < SEC_MAX_GROUP_DESCRIPTORS; ++current) {

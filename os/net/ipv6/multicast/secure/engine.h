@@ -46,8 +46,8 @@
 
 /* Functions */
 
-int decode_bytes_to_cert(struct sec_certificate *cert, const uint8_t *data, uint16_t size);
-int add_cerificate(struct sec_certificate *certificate);  /* import_group_key_descriptor */
+int decode_bytes_to_security_descriptor(struct sec_certificate *cert, const uint8_t *data, uint16_t size);
+int import_group_security_descriptor(struct sec_certificate *certificate);
 
 /* TODO: general init engine */
 

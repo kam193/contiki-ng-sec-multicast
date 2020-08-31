@@ -32,4 +32,7 @@ void EXT_TEARDOWN_FUNCTION();
 
 void register_module_name(const char *name, int len);
 
+extern uip_ipaddr_t NETWORK_A;
+extern uip_ipaddr_t NETWORK_NOT_SUPPORTED;
+
 #endif

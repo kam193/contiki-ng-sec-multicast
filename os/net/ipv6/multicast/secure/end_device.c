@@ -86,11 +86,11 @@ ce_answer_handler(const uip_ipaddr_t *sender_addr,
     return;
   }
   struct sec_certificate cert;
-  if(decode_bytes_to_cert(&cert, buffer, out_size) != 0) {
+  if(decode_bytes_to_security_descriptor(&cert, buffer, out_size) != 0) {
     PRINTF("Decoding cert fails.\n");
     return;
   }
-  add_cerificate(&cert);
+  import_group_security_descriptor(&cert);
 }
 static void
 cert_exchange_answer_callback(struct simple_udp_connection *c,

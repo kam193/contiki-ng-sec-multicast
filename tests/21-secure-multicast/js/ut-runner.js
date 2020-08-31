@@ -3,10 +3,13 @@ TIMEOUT(10000, log.testFailed());
 
 // When 'true' the whole output from motes is printed.
 // Otherwise, only test summaries are logged.
-var motes_output = true;
+var motes_output = false;
 
 var failed = 0;
 var succeeded = 0;
+
+var done = 0;
+var expected_done = 2;
 
 while(true) {
     YIELD();
@@ -27,6 +30,9 @@ while(true) {
         succeeded += 1;
 
     if(msg.contains("DONE"))
+        done += 1;
+
+    if (done == expected_done)
         break;
 }
 
