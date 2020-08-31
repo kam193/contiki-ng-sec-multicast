@@ -22,8 +22,8 @@
 #include "encryptions.h"
 #include "end_device.h"
 
-#define RETRY_PAUSE 500
-#define MAX_RETRY   5
+#define RETRY_PAUSE 900
+#define MAX_RETRY   100
 
 static device_cert_t *rp_pub_cert = NULL;
 static struct simple_udp_connection certexch_conn;
@@ -230,12 +230,12 @@ PROCESS_THREAD(get_root_cert, ev, data)
     if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&root_addr)) {
       break;
     }
-    if(retries >= 10 * MAX_RETRY) {
+    if(retries >= MAX_RETRY) {
       PRINTF("Cannot get root address, giving up after %d\n", retries);
       PROCESS_EXIT();
     }
     ++retries;
-    etimer_set(&timer, 2 * RETRY_PAUSE);
+    etimer_set(&timer, RETRY_PAUSE + RANDOMIZE());
     PROCESS_YIELD_UNTIL(etimer_expired(&timer));
   }
   PRINTF("Root is reachable\n");
@@ -258,7 +258,7 @@ PROCESS_THREAD(get_root_cert, ev, data)
     ++retries;
     PRINTF("Sending retry %d request root cert\n", retries);
     send_root_cert_request();
-    etimer_set(&timer, RETRY_PAUSE);
+    etimer_set(&timer, RETRY_PAUSE + RANDOMIZE());
   }
   PROCESS_END();
 }

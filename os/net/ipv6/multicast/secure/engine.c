@@ -438,7 +438,7 @@ PROCESS_THREAD(secure_engine, ev, data)
       if(data == &queue_timeout) {
         retry_on_queue_in();
         retry_on_queue_out();
-        etimer_set(&queue_timeout, SEC_QUEUE_RETRY_TIME);
+        etimer_set(&queue_timeout, SEC_QUEUE_RETRY_TIME + RANDOMIZE());
       }
       break;
 

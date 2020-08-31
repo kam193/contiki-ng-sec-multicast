@@ -32,7 +32,7 @@
 
 /* When retry get cert */
 #ifndef SEC_QUEUE_RETRY_TIME
-#define SEC_QUEUE_RETRY_TIME 300
+#define SEC_QUEUE_RETRY_TIME 500
 #endif
 
 #ifndef SEC_QUEUE_MAX_RETRY
