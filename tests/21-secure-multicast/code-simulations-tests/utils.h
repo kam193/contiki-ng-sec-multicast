@@ -35,5 +35,6 @@ void prepare_mcast(uip_ipaddr_t *addr, struct uip_udp_conn **connection);
 void multicast_send(struct uip_udp_conn *connection, const char message[], size_t len);
 
 extern uip_ipaddr_t NETWORK_A;
+extern uip_ipaddr_t NETWORK_B;
 
 #endif

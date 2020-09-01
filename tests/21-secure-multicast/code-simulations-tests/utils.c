@@ -12,6 +12,7 @@
 #include "utils.h"
 
 uip_ipaddr_t NETWORK_A = { { 0xFF, 0x1E, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x89, 0xA0, 0x0D } };
+uip_ipaddr_t NETWORK_B = { { 0xFF, 0x1E, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x89, 0xAB, 0xCD } };
 
 static char buf[MAX_PAYLOAD_LEN];
 

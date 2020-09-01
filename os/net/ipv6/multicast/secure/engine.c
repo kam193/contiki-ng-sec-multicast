@@ -171,7 +171,7 @@ get_certificate_for(const uip_ip6addr_t *mcast_addr)
 /*---------------------------------------------------------------------------*/
 /* Private functions                                                         */
 /*---------------------------------------------------------------------------*/
-static struct sec_certificate *
+struct sec_certificate *
 get_certificate(uip_ip6addr_t *group_addr)
 {
   for(uint32_t i = 0; i < SEC_MAX_GROUP_DESCRIPTORS; ++i) {
@@ -288,7 +288,7 @@ decrypt_message(struct sec_certificate *cert, uint8_t *message, uint16_t message
   for(size_t i = 0; i < MIN(original_length, max_length - sizeof(uint16_t)); ++i) {
     out_buffer[i] = out_buffer[i + sizeof(uint16_t)];
   }
-  *out_len = original_length;
+  *out_len = MIN(original_length, max_length);
   return 0;
 }
 /*---------------------------------------------------------------------------*/
