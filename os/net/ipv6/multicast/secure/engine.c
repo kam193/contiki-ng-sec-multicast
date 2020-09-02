@@ -251,10 +251,10 @@ encrypt_message(struct sec_certificate *cert, unsigned char *message, uint16_t m
   }
 
   /* First, we need to store a data_len in encoded data in case of any padding */
-  memcpy(buffer, &message_len, sizeof(uint16_t));
-  memcpy(buffer + sizeof(uint16_t), message, message_len);
+  // memcpy(buffer, &message_len, sizeof(uint16_t));
+  // memcpy(buffer + sizeof(uint16_t), message, message_len);
 
-  return driver->encrypt(cert, message_len + sizeof(uint16_t), out_buffer, out_len);
+  return driver->encrypt(cert, message, message_len, out_buffer, out_len);
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -280,19 +280,11 @@ static int
 decrypt_message(struct sec_certificate *cert, uint8_t *message, uint16_t message_len,
                 unsigned char *out_buffer, uint32_t *out_len)
 {
-  uint32_t max_length = *out_len;
   const secure_mode_driver_t *driver = get_mode_driver(cert->mode);
   if(driver == NULL) {
     return ERR_UNSUPPORTED_MODE;
   }
   CHECK_0(driver->decrypt(cert, message, message_len, out_buffer, out_len));
-
-  /* Get len of original message and remove it from the packet */
-  uint16_t original_length = *(uint16_t *)(out_buffer);
-  for(size_t i = 0; i < MIN(original_length, max_length - sizeof(uint16_t)); ++i) {
-    out_buffer[i] = out_buffer[i + sizeof(uint16_t)];
-  }
-  *out_len = MIN(original_length, max_length);
   return 0;
 }
 /*---------------------------------------------------------------------------*/

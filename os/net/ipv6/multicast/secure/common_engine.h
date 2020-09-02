@@ -50,7 +50,7 @@ struct secure_mode_driver {
   int (*descriptor_to_bytes) (struct sec_certificate *cert, uint8_t *buff, uint32_t *size);
   int (*descriptor_from_bytes) (struct sec_certificate *cert, const uint8_t *data, uint16_t size);
 
-  int (*encrypt) (struct sec_certificate *cert, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len);
+  int (*encrypt) (struct sec_certificate *cert, unsigned char *message, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len);
   int (*decrypt) (struct sec_certificate *cert, unsigned char *message, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len);
 };
 typedef struct secure_mode_driver secure_mode_driver_t;

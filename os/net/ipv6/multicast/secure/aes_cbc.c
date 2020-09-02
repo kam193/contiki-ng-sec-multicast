@@ -27,30 +27,38 @@ count_aes_padded_size(uint8_t size)
   return padded_size;
 }
 int
-aes_cbc_encrypt(struct sec_certificate *cert, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
+aes_cbc_encrypt(struct sec_certificate *cert, unsigned char *message, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
 {
   struct secure_descriptor *current_descriptor = cert->secure_descriptor;
+  uint8_t vi[16];
+  generate_random_chars(vi, 16);
 
   Aes encryption_engine;
   if((return_code = wc_AesSetKey(&encryption_engine, current_descriptor->aes_key,
-                                 AES_BLOCK_SIZE, current_descriptor->aes_vi, AES_ENCRYPTION)) != 0) {
+                                 AES_BLOCK_SIZE, vi, AES_ENCRYPTION)) != 0) {
     return return_code;
   }
 
-  uint16_t padded_size = count_aes_padded_size(message_len);
-  if(padded_size > sizeof(buffer)) {
+
+  uint16_t padded_size = count_aes_padded_size(message_len + sizeof(uint16_t));
+  if(padded_size + sizeof(vi) > sizeof(buffer) || padded_size + sizeof(vi) > *out_len) {
     return ERR_LIMIT_EXCEEDED;
   }
-  for(size_t i = message_len; i < padded_size; ++i) {
+
+  /* We need to store a message in encoded data in case of padding */
+  memcpy(buffer, &message_len, sizeof(uint16_t));
+  memcpy(buffer + sizeof(uint16_t), message, message_len);
+
+  for(size_t i = message_len + sizeof(uint16_t); i < padded_size; ++i) {
     buffer[i] = RANDOM_CHAR();
   }
-  print_chars(padded_size - 2, buffer + 2);
 
   if((return_code = wc_AesCbcEncrypt(&encryption_engine, out_buffer, buffer, padded_size)) != 0) {
     return return_code;
   }
 
-  *out_len = padded_size;
+  memcpy(out_buffer + padded_size, vi, sizeof(vi));
+  *out_len = padded_size + sizeof(vi);
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -58,19 +66,29 @@ int
 aes_cbc_decrypt(struct sec_certificate *cert, unsigned char *message,
                 uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
 {
+  uint32_t max_length = *out_len - sizeof(uint16_t);
   struct secure_descriptor *current_descriptor = cert->secure_descriptor;
+  uint8_t vi[16];
+
+  if(message_len <= sizeof(vi)) {
+    return ERR_INCORRECT_DATA;
+  }
+  memcpy(vi, message + (message_len - sizeof(vi)), sizeof(vi));
 
   Aes encryption_engine;
   if((return_code = wc_AesSetKey(&encryption_engine, current_descriptor->aes_key,
-                                 AES_BLOCK_SIZE, current_descriptor->aes_vi, AES_DECRYPTION)) != 0) {
+                                 AES_BLOCK_SIZE, vi, AES_DECRYPTION)) != 0) {
     return return_code;
   }
 
-  if((return_code = wc_AesCbcDecrypt(&encryption_engine, out_buffer, message, message_len)) != 0) {
+  if((return_code = wc_AesCbcDecrypt(&encryption_engine, out_buffer, message, message_len - sizeof(vi))) != 0) {
     return return_code;
   }
 
-  *out_len = message_len;
+  /* Get len of original message and remove it from the packet */
+  uint16_t original_length = *(uint16_t *)(out_buffer);
+  memmove(out_buffer, out_buffer + sizeof(uint16_t), MIN(original_length, max_length));
+  *out_len = MIN(original_length, max_length);
   return 0;
 }
 /*---------------------------------------------------------------------------*/
