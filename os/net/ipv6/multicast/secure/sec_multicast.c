@@ -1,27 +1,57 @@
+/*
+ * Copyright (c) 2020, Kamil Mańkowski
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * \addtogroup sec-multicast
+ * @{
+ */
 /**
  * \file
- *         This file shows the implementations of additional security layer
- *         for multicast communication.
+ * Contains the implementation of the multicast security layer. This catches
+ * the in/out packages and pass to the local security engine, and after
+ * processing it call selected multicast engine to out packet or let
+ * system processing.
  *
- * \author  Kamil Mańkowski
+ * \author Kamil Mańkowski <kam193@wp.pl>
  *
  */
-
 #include "contiki.h"
 #include "contiki-net.h"
 #include "net/ipv6/multicast/uip-mcast6.h"
 #include "net/ipv6/multicast/secure/sec_multicast.h"
 #include "net/packetbuf.h"
 
-#include <wolfssl/options.h>
-#include <wolfssl/wolfcrypt/aes.h>
-
 #include "engine.h"
-#include "end_device.h"
 
 #define DEBUG DEBUG_PRINT
 #include "net/ipv6/uip-debug.h"
-#include "tmp_debug.h"
 
 static unsigned char buffer[UIP_BUFSIZE];
 extern uint16_t uip_slen;
@@ -36,7 +66,7 @@ recalculate_udp_checksum()
   if(UIP_UDP_BUF->udpchksum == 0) {
     UIP_UDP_BUF->udpchksum = 0xffff;
   }
-#endif /* UIP_UDP_CHECKSUMS */
+#endif
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -101,3 +131,4 @@ const struct uip_mcast6_driver sec_multicast_driver = {
   in,
 };
 /*---------------------------------------------------------------------------*/
+/** @} */

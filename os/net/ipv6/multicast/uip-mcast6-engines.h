@@ -52,7 +52,7 @@
 #define UIP_MCAST6_ENGINE_ROLL_TM     2 /**< The ROLL TM engine */
 #define UIP_MCAST6_ENGINE_ESMRF       3 /**< The ESMRF engine */
 #define UIP_MCAST6_ENGINE_MPL         4 /**< The MPL (RFC7731) engine */
-#define UIP_MCAST6_ENGINE_SEC         5 /**< Secure multicast engine */
+#define UIP_MCAST6_ENGINE_SEC         5 /**< Secure Multicast Layer engine */
 
 #endif /* UIP_MCAST6_ENGINES_H_ */
 /** @} */
