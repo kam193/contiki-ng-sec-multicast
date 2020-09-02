@@ -130,3 +130,17 @@ aes_cbc_refresh_key(struct sec_certificate *key_descriptor)
   generate_random_chars(key_desc->aes_vi, sizeof(key_desc->aes_vi));
   return 0;
 }
+/*---------------------------------------------------------------------------*/
+const secure_mode_driver_t aes_cbc_driver = {
+  .mode = SEC_MODE_AES_CBC,
+  .init_descriptor = init_aes_cbc_descriptor,
+  .refresh_key = aes_cbc_refresh_key,
+  .copy_descriptor = aes_cbc_copy_descriptor,
+  .free_descriptor = NULL,
+
+  .descriptor_to_bytes = aes_cbc_descriptor_to_bytes,
+  .descriptor_from_bytes = aes_cbc_bytes_to_descriptor,
+
+  .encrypt = aes_cbc_encrypt,
+  .decrypt = aes_cbc_decrypt,
+};

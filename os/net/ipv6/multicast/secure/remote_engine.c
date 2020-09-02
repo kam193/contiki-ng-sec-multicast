@@ -43,15 +43,12 @@ static size_t free_group_places = SEC_MAX_SECURED_GROUPS;
 static int
 recreate_group_key(secured_group_t *group_descriptor)
 {
-  switch(group_descriptor->key_descriptor.mode) {
-  case SEC_MODE_AES_CBC:
-    CHECK_0(aes_cbc_refresh_key(&group_descriptor->key_descriptor));
-    break;
-
-  default:
-    return ERR_OTHER;
-    break;
+  const secure_mode_driver_t *driver = get_mode_driver(group_descriptor->key_descriptor.mode);
+  if(driver == NULL) {
+    return ERR_UNSUPPORTED_MODE;
   }
+  CHECK_0(driver->refresh_key(&group_descriptor->key_descriptor));
+
   /* group_descriptor->last_refresh_sec = clock_seconds(); */
   group_descriptor->key_descriptor.valid_until = clock_seconds() + group_descriptor->refresh_period_sec;
   PRINTF("Group key for ");
@@ -101,6 +98,10 @@ int
 encode_cert_to_byte(struct sec_certificate *cert, uint32_t requestor_time, uint8_t *buff, uint32_t *size)
 {
   uint32_t result_size = 0, descriptor_size = 0;
+  const secure_mode_driver_t *driver = get_mode_driver(cert->mode);
+  if(driver == NULL) {
+    return ERR_UNSUPPORTED_MODE;
+  }
 
   /* Copy header */
   if(result_size + sizeof(uip_ip6addr_t) + 1 > *size) {
@@ -115,14 +116,7 @@ encode_cert_to_byte(struct sec_certificate *cert, uint32_t requestor_time, uint8
 
   /* Copy descriptor depends of mode */
   descriptor_size = *size - result_size;
-  switch(cert->mode) {
-  case SEC_MODE_AES_CBC:
-    CHECK_0(aes_cbc_descriptor_to_bytes(cert, buff + result_size, &descriptor_size));
-    break;
-
-  default:
-    return -2;
-  }
+  CHECK_0(driver->descriptor_to_bytes(cert, buff + result_size, &descriptor_size));
 
   *size = result_size + descriptor_size;
   return 0;
@@ -137,15 +131,11 @@ init_key_descriptor(struct sec_certificate *descriptor, uip_ip6addr_t *maddr, ui
   uip_ip6addr_copy(&descriptor->group_addr, maddr);
   descriptor->mode = mode;
 
-  switch(mode) {
-  case SEC_MODE_AES_CBC:
-    return init_aes_cbc_descriptor(descriptor);
-    break;
-
-  default:
-    return ERR_OTHER;
-    break;
+  const secure_mode_driver_t *driver = get_mode_driver(mode);
+  if(driver == NULL) {
+    return ERR_UNSUPPORTED_MODE;
   }
+  return driver->init_descriptor(descriptor);
 }
 /* Let's RP manage given group:which group, which mode and when refreshing key */
 int

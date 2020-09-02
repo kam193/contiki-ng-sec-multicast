@@ -39,6 +39,10 @@
 #define SEC_QUEUE_MAX_RETRY 3
 #endif
 
+#ifndef SEC_MODE_DRIVERS_LIST
+#define SEC_MODE_DRIVERS_PTR_LIST &aes_cbc_driver
+#endif
+
 /* Packet processing */
 
 #define PROCESS_UPPER   0

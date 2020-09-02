@@ -75,6 +75,8 @@ static struct etimer queue_timeout;
 uip_ip6addr_t expected;
 #define NEW_KEY_EVENT 0x61
 
+static const secure_mode_driver_t *mode_drivers[] = { SEC_MODE_DRIVERS_PTR_LIST };
+
 PROCESS(secure_engine, "Secure engine");
 
 /*---------------------------------------------------------------------------*/
@@ -93,15 +95,11 @@ decode_bytes_to_security_descriptor(struct sec_certificate *cert, const uint8_t 
   memcpy(&cert->valid_until, data + decoded, sizeof(uint32_t));
   decoded += sizeof(uint32_t);
 
-  switch(cert->mode) {
-  case SEC_MODE_AES_CBC:
-    return aes_cbc_bytes_to_descriptor(cert, data + decoded, size - decoded);
-    break;
-
-  default:
-    break;
+  const secure_mode_driver_t *driver = get_mode_driver(cert->mode);
+  if(driver == NULL) {
+    return ERR_UNSUPPORTED_MODE;
   }
-  return 0;
+  return driver->descriptor_from_bytes(cert, data + decoded, size - decoded);
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -195,11 +193,22 @@ get_certificate(uip_ip6addr_t *group_addr)
 int
 copy_certificate(struct sec_certificate *dest, struct sec_certificate *src)
 {
-  memcpy(dest, src, sizeof(struct sec_certificate));
-  if(src->mode == SEC_MODE_AES_CBC) {
-    return aes_cbc_copy_descriptor(dest, src);
+  const secure_mode_driver_t *driver = get_mode_driver(src->mode);
+  if(driver == NULL) {
+    return ERR_UNSUPPORTED_MODE;
   }
-  return 0;
+  memcpy(dest, src, sizeof(struct sec_certificate));
+  return driver->copy_descriptor(dest, src);
+}
+const secure_mode_driver_t *
+get_mode_driver(uint8_t mode)
+{
+  for(size_t i = 0; i < sizeof(mode_drivers); ++i) {
+    if(mode_drivers[i]->mode == mode) {
+      return mode_drivers[i];
+    }
+  }
+  return NULL;
 }
 /*---------------------------------------------------------------------------*/
 
@@ -237,17 +246,16 @@ static int
 encrypt_message(struct sec_certificate *cert, unsigned char *message, uint16_t message_len,
                 unsigned char *out_buffer, uint32_t *out_len)
 {
+  const secure_mode_driver_t *driver = get_mode_driver(cert->mode);
+  if(driver == NULL) {
+    return ERR_UNSUPPORTED_MODE;
+  }
+
   /* First, we need to store a data_len in encoded data in case of any padding */
   memcpy(buffer, &message_len, sizeof(uint16_t));
   memcpy(buffer + sizeof(uint16_t), message, message_len);
 
-  switch(cert->mode) {
-  case SEC_MODE_AES_CBC:
-    return aes_cbc_encrypt(cert, message_len + sizeof(uint16_t), out_buffer, out_len);
-
-  default:
-    return -1;
-  }
+  return driver->encrypt(cert, message_len + sizeof(uint16_t), out_buffer, out_len);
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -274,14 +282,11 @@ decrypt_message(struct sec_certificate *cert, uint8_t *message, uint16_t message
                 unsigned char *out_buffer, uint32_t *out_len)
 {
   uint32_t max_length = *out_len;
-  switch(cert->mode) {
-  case SEC_MODE_AES_CBC:
-    CHECK_0(aes_cbc_decrypt(cert, message, message_len, out_buffer, out_len));
-    break;
-
-  default:
-    return -1;
+  const secure_mode_driver_t *driver = get_mode_driver(cert->mode);
+  if(driver == NULL) {
+    return ERR_UNSUPPORTED_MODE;
   }
+  CHECK_0(driver->decrypt(cert, message, message_len, out_buffer, out_len));
 
   /* Get len of original message and remove it from the packet */
   uint16_t original_length = *(uint16_t *)(out_buffer);
