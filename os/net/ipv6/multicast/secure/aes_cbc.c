@@ -2,7 +2,7 @@
 #include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/aes.h>
 
-#include "encryptions.h"
+#include "aes_cbc.h"
 #include "common_engine.h"
 #include "helpers.h"
 #include "errors.h"

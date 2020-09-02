@@ -17,6 +17,7 @@
 #include "net/ipv6/uip.h"
 #include "errors.h"
 #include "common_engine.h"
+#include "aes_cbc.h"
 
 /* Configurations and constants */
 

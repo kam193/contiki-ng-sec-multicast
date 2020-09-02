@@ -1,13 +1,12 @@
 
-#ifndef ENCODINGS_H_
-#define ENCODINGS_H_
+#ifndef AES_CBC_H_
+#define AES_CBC_H_
 
 #include "contiki.h"
 #include <stdint.h>
 #include "common_engine.h"
 
-/******************************************************************************/
-/* AES-CBC SUPPORT */
+/* AES-CBC DRIVER */
 
 struct secure_descriptor { /* aes___ */
   unsigned char aes_key[16];

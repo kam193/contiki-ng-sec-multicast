@@ -28,7 +28,6 @@
 #include "authorization.h"
 #include "remote_engine.h"
 #include "common_engine.h"
-#include "encryptions.h"
 #include "end_device.h"
 
 static bool certexch_initialized = false;

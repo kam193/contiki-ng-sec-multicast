@@ -19,7 +19,6 @@
 #include "authorization.h"
 #include "remote_engine.h"
 #include "common_engine.h"
-#include "encryptions.h"
 #include "end_device.h"
 
 #define RETRY_PAUSE 900
