@@ -15,7 +15,7 @@
 
 #define RANDOM_CHAR()   (uint8_t)(random_rand() % 256)
 
-#define RANDOMIZE()     (random_rand() % 400) - 200
+#define RANDOMIZE()     (random_rand() % 200) - 100
 
 typedef void (*request_handler_t)(const uip_ipaddr_t *sender_addr,
                                   uint16_t sender_port,

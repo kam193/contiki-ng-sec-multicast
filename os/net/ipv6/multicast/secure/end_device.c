@@ -21,7 +21,7 @@
 #include "common_engine.h"
 #include "end_device.h"
 
-#define RETRY_PAUSE 900
+#define RETRY_PAUSE 1000
 #define MAX_RETRY   100
 
 static device_cert_t *rp_pub_cert = NULL;
@@ -36,7 +36,7 @@ PROCESS(get_root_cert, "Get root cert");
 int
 certexch_import_rp_cert(const device_cert_t *cert)
 {
-  if(!(cert->flags & CE_SERVER_PUB)) {
+  if(!(cert->flags & CERT_SERVER_PUB)) {
     return ERR_INCORRECT_DATA;
   }
   rp_pub_cert = malloc(sizeof(device_cert_t));
@@ -104,6 +104,7 @@ cert_exchange_answer_callback(struct simple_udp_connection *c,
 
   /* TODO: max data len */
   uint8_t flags = *(data);
+  PRINTF("Get data %d\n", flags);
 
   switch(flags) {
   case CERT_EXCHANGE_ANSWER:

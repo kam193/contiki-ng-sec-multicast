@@ -1,8 +1,42 @@
+/*
+ * Copyright (c) 2020, Kamil Mańkowski
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * \addtogroup sec-multicast
+ * @{
+ */
 /**
  * \file
- *         This file provides funtions for authorization based on certificates
+ * This file implements funtions for authorization based on certificates
  *
- * \author  Kamil Mańkowski
+ * \author Kamil Mańkowski <kam193@wp.pl>
  *
  */
 
@@ -14,7 +48,6 @@
 #include <wolfssl/wolfcrypt/hash.h>
 
 #include "./helpers.h"
-#include "tmp_debug.h"
 
 static ecc_key ca_pub;
 static ecc_key own_key;
@@ -231,3 +264,4 @@ auth_encode_cert(uint8_t *dest_data, uint16_t *dest_len, const device_cert_t *sr
   *dest_len = result_size + src_cert->signature_len;
   return 0;
 }
+/** }@ */

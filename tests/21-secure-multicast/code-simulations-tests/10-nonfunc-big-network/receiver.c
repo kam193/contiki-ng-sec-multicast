@@ -42,6 +42,7 @@ test_handler(void)
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(mcast_sink_process, ev, data)
 {
+  static struct etimer timer;
   PROCESS_BEGIN();
 
   if(join_mcast_group(&NETWORK_A) == NULL) {
@@ -54,6 +55,11 @@ PROCESS_THREAD(mcast_sink_process, ev, data)
 
   FAIL_NOT_0(auth_import_ca_cert(&ca));
   FAIL_NOT_0(auth_import_own_cert(&c3_private_cert));
+
+  uint8_t pause = random_rand()%2000;
+  etimer_set(&timer, pause);
+  PROCESS_YIELD_UNTIL(etimer_expired(&timer));
+
   FAIL_NOT_0(get_rp_cert());
 
   WAIT_UNTIL_ROOT_CERT();
