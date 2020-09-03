@@ -1,27 +1,63 @@
+/*
+ * Copyright (c) 2020, Kamil Mańkowski
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * \addtogroup sec-multicast
+ * @{
+ */
 /**
  * \file
- *    Error codes used in secure multicast engine
+ * Error codes used in secure multicast engine
  *
- *
- * \author  Kamil Mańkowski
+ * \author Kamil Mańkowski <kam193@wp.pl>
  *
  */
-
 #ifndef SEC_ERRORS_H_
 #define SEC_ERRORS_H_
 
-#define ERR_OTHER            -1
-#define ERR_MEMORY           -2
+/**
+ * \name Error codes
+ *
+ * @{
+ */
+
+#define ERR_OTHER            -1     /**< General error */
+#define ERR_MEMORY           -2     /**< Memory allocation problem */
 #define ERR_INCORRECT_DATA   -3
 #define ERR_RESULT_TOO_LONG  -4
 #define ERR_VERIFY_FAILED    -5
-#define ERR_NOT_INITIALIZED  -6
-#define ERR_UNSUPPORTED_MODE -7
+#define ERR_NOT_INITIALIZED  -6     /**< Module was not initialized properly */
+#define ERR_UNSUPPORTED_MODE -7     /**< The secure mode is unsupported */
+#define ERR_LIMIT_EXCEEDED   -8     /**< Limit (e.g. size of a queue) is exceeded */
+#define ERR_GROUP_EXISTS     -9     /**< Try to override settings for a group */
 
-#define ERR_GROUP_NOT_KNOWN   1
-#define ERR_NEED_REFRESH_CERT 2
-#define ERR_LIMIT_EXCEEDED    3
-
-#define ERR_GROUP_EXISTS      4
-
+/** @} */
 #endif
+/** @} */

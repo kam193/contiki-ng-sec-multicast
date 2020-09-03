@@ -33,6 +33,13 @@
  * @{
  */
 /**
+ * \defgroup sec-multicast-auth Authorization and Communication Module
+ *
+ *  A module responsible for authorize devices and communicate nodes and server.
+ *
+ * @{
+ */
+/**
  * \file
  * Headers for common authorization module functions.
  *
@@ -48,15 +55,20 @@
 
 #define CERT_HASH_LEN      32 /**< Length of the certificate hash */
 
+/**
+ * \name Certificate types
+ * @{
+ */
 #define CERT_SERVER_PUB    1 /**< The server public certificate type */
 #define CERT_NODE_PUB      2 /**< The end device certificate type */
+/** @} */
 
 /**
  * The issuer certificate structure.
  *
  * Aliased as \ref ca_cert_t
  */
-typedef struct ca_cert {
+struct ca_cert {
   uint16_t size;  /**< Size of the issuer ECC public key */
   uint8_t *pub;   /**< The ECC public key in the X963 format */
 };
@@ -169,7 +181,7 @@ int auth_decrypt_data(uint8_t *dest_data, uint32_t *dest_len,
 
 /**
  * \brief Count the size paddet to 16-bytes blocks.
- * 
+ *
  * This function is specified to use with 1 byte-length size only.
  *
  * \param size
@@ -179,27 +191,33 @@ uint8_t auth_count_padding(uint8_t size);
 
 /**
  * \brief Deep copy of the public certificate.
- * 
+ *
  * Private part, if exists, is ignored.
- * 
- * \param dest 
- * \param src 
- * \return int 
+ *
+ * \param dest
+ * \param src
+ * \return int
  */
 int auth_copy_pub_cert(device_cert_t *dest, const device_cert_t *src);
 
 /**
  * \brief Free the fields inside device certificate
- * 
- * \param cert 
+ *
+ * \param cert
  */
 void auth_free_device_cert(device_cert_t *cert);
 
 /**
  * \brief Free common resources used by authentication service
- * 
+ *
  */
 void auth_free_service();
 
+typedef void (*request_handler_t)(const uip_ipaddr_t *sender_addr,
+                                  uint16_t sender_port,
+                                  const uint8_t *data,
+                                  uint16_t datalen);
+
 #endif
-/** }@ */
+/** @} */
+/** @} */

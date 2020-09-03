@@ -29,7 +29,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
- * \addtogroup sec-multicast
+ * \addtogroup sec-multicast-auth
  * @{
  */
 /**
@@ -48,6 +48,9 @@
 #include <wolfssl/wolfcrypt/hash.h>
 
 #include "./helpers.h"
+
+#define DEBUG DEBUG_PRINT
+#include "net/ipv6/uip-debug.h"
 
 static ecc_key ca_pub;
 static ecc_key own_key;
@@ -264,4 +267,4 @@ auth_encode_cert(uint8_t *dest_data, uint16_t *dest_len, const device_cert_t *sr
   *dest_len = result_size + src_cert->signature_len;
   return 0;
 }
-/** }@ */
+/** @} */
