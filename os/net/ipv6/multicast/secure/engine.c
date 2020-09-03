@@ -176,7 +176,7 @@ get_certificate(uip_ip6addr_t *group_addr)
       continue;
     }
     if(uip_ip6addr_cmp(&group_descriptors[i].certificate.group_addr, group_addr)) {
-      if(group_descriptors[i].certificate.valid_until < clock_seconds()) {
+      if(group_descriptors[i].certificate.valid_until <= clock_seconds()) {
         PRINTF("Group key is expired.\n");
         group_descriptors[i].occupied = false;
         return NULL;
@@ -249,11 +249,6 @@ encrypt_message(struct sec_certificate *cert, unsigned char *message, uint16_t m
   if(driver == NULL) {
     return ERR_UNSUPPORTED_MODE;
   }
-
-  /* First, we need to store a data_len in encoded data in case of any padding */
-  // memcpy(buffer, &message_len, sizeof(uint16_t));
-  // memcpy(buffer + sizeof(uint16_t), message, message_len);
-
   return driver->encrypt(cert, message, message_len, out_buffer, out_len);
 }
 /*---------------------------------------------------------------------------*/

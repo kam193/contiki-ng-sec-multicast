@@ -37,7 +37,7 @@
 #endif
 
 #ifndef SEC_QUEUE_MAX_RETRY
-#define SEC_QUEUE_MAX_RETRY 3
+#define SEC_QUEUE_MAX_RETRY 5
 #endif
 
 #ifndef SEC_MODE_DRIVERS_LIST
