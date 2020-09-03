@@ -14,6 +14,8 @@
 #include "net/ipv6/uip.h"
 #include "authorization.h"
 
+#define KEY_REQUEST_DATA_SIZE (TIMESTAMP_SIZE + sizeof(uip_ip6addr_t))
+
 bool is_root_cert();
 void free_root_cert();
 int get_rp_cert(); /* -> private? */

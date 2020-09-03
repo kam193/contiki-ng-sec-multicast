@@ -54,6 +54,7 @@
 #include "net/ipv6/uip.h"
 
 #define CERT_HASH_LEN      32 /**< Length of the certificate hash */
+#define TIMESTAMP_SIZE      4 /**< Timestamp length */
 
 /**
  * \name Certificate types
@@ -61,6 +62,16 @@
  */
 #define CERT_SERVER_PUB    1 /**< The server public certificate type */
 #define CERT_NODE_PUB      2 /**< The end device certificate type */
+/** @} */
+
+/**
+ * \name Packet types
+ * @{ 
+ */
+#define GROUP_DESCRIPTOR_REQUEST  1
+#define GROUP_DESCRIPTOR_ANSWER   2
+#define SERVER_CERT_REQUEST       3
+#define SERVER_CERT_ANSWER        4
 /** @} */
 
 /**

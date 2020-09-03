@@ -27,9 +27,9 @@ count_aes_padded_size(uint8_t size)
   return padded_size;
 }
 int
-aes_cbc_encrypt(struct sec_certificate *cert, unsigned char *message, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
+aes_cbc_encrypt(group_security_descriptor_t *cert, unsigned char *message, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
 {
-  struct secure_descriptor *current_descriptor = cert->secure_descriptor;
+  struct secure_descriptor *current_descriptor = cert->key_descriptor;
   uint8_t vi[16];
   generate_random_chars(vi, 16);
 
@@ -63,11 +63,11 @@ aes_cbc_encrypt(struct sec_certificate *cert, unsigned char *message, uint16_t m
 }
 /*---------------------------------------------------------------------------*/
 int
-aes_cbc_decrypt(struct sec_certificate *cert, unsigned char *message,
+aes_cbc_decrypt(group_security_descriptor_t *cert, unsigned char *message,
                 uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len)
 {
   uint32_t max_length = *out_len - sizeof(uint16_t);
-  struct secure_descriptor *current_descriptor = cert->secure_descriptor;
+  struct secure_descriptor *current_descriptor = cert->key_descriptor;
   uint8_t vi[16];
 
   if(message_len <= sizeof(vi)) {
@@ -93,57 +93,57 @@ aes_cbc_decrypt(struct sec_certificate *cert, unsigned char *message,
 }
 /*---------------------------------------------------------------------------*/
 int
-aes_cbc_bytes_to_descriptor(struct sec_certificate *cert, const uint8_t *data, uint16_t size)
+aes_cbc_bytes_to_descriptor(group_security_descriptor_t *cert, const uint8_t *data, uint16_t size)
 {
   if(sizeof(struct secure_descriptor) > size) {
     return ERR_INCORRECT_DATA;
   }
-  cert->secure_descriptor = malloc(sizeof(struct secure_descriptor));
-  if(cert->secure_descriptor == NULL) {
+  cert->key_descriptor = malloc(sizeof(struct secure_descriptor));
+  if(cert->key_descriptor == NULL) {
     return ERR_MEMORY;
   }
-  memcpy(cert->secure_descriptor, data, sizeof(struct secure_descriptor));
+  memcpy(cert->key_descriptor, data, sizeof(struct secure_descriptor));
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 int
-aes_cbc_copy_descriptor(struct sec_certificate *dest, struct sec_certificate *src)
+aes_cbc_copy_descriptor(group_security_descriptor_t *dest, group_security_descriptor_t *src)
 {
-  dest->secure_descriptor = malloc(sizeof(struct secure_descriptor));
-  if(dest->secure_descriptor == NULL) {
+  dest->key_descriptor = malloc(sizeof(struct secure_descriptor));
+  if(dest->key_descriptor == NULL) {
     return ERR_MEMORY;
   }
-  memcpy(dest->secure_descriptor, src->secure_descriptor, sizeof(struct secure_descriptor));
+  memcpy(dest->key_descriptor, src->key_descriptor, sizeof(struct secure_descriptor));
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 /* Functions used on coordinator */
 /*---------------------------------------------------------------------------*/
 int
-init_aes_cbc_descriptor(struct sec_certificate *descriptor)
+init_aes_cbc_descriptor(group_security_descriptor_t *descriptor)
 {
-  descriptor->secure_descriptor = malloc(sizeof(struct secure_descriptor));
-  if(descriptor->secure_descriptor == NULL) {
+  descriptor->key_descriptor = malloc(sizeof(struct secure_descriptor));
+  if(descriptor->key_descriptor == NULL) {
     return ERR_MEMORY;
   }
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 int
-aes_cbc_descriptor_to_bytes(struct sec_certificate *cert, uint8_t *buff, uint32_t *size)
+aes_cbc_descriptor_to_bytes(group_security_descriptor_t *cert, uint8_t *buff, uint32_t *size)
 {
   if(sizeof(struct secure_descriptor) > *size) {
     return ERR_RESULT_TOO_LONG;
   }
-  memcpy(buff, cert->secure_descriptor, sizeof(struct secure_descriptor));
+  memcpy(buff, cert->key_descriptor, sizeof(struct secure_descriptor));
   *size = sizeof(struct secure_descriptor);
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 int
-aes_cbc_refresh_key(struct sec_certificate *key_descriptor)
+aes_cbc_refresh_key(group_security_descriptor_t *key_descriptor)
 {
-  struct secure_descriptor *key_desc = key_descriptor->secure_descriptor;
+  struct secure_descriptor *key_desc = key_descriptor->key_descriptor;
   generate_random_chars(key_desc->aes_key, sizeof(key_desc->aes_key));
   generate_random_chars(key_desc->aes_vi, sizeof(key_desc->aes_vi));
   return 0;

@@ -20,9 +20,9 @@
 static struct uip_udp_conn *sink_conn;
 
 /* An access to the non-public function due to not possible clock set */
-struct sec_certificate *get_certificate(uip_ip6addr_t *group_addr);
+group_security_descriptor_t *get_certificate(uip_ip6addr_t *group_addr);
 
-static struct sec_certificate tmp;
+static group_security_descriptor_t tmp;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(mcast_sink_process, "Multicast Receiver NETWORK A");
@@ -53,8 +53,8 @@ PROCESS_THREAD(mcast_sink_process, ev, data)
   /*clock_set_seconds(clock_seconds() - 5); - this function is not supported in the simulator */
 
   /* Now do a magic to reuse the same key in the future */
-  struct sec_certificate *cert = get_certificate(&NETWORK_A);
-  FAIL_NOT_0(copy_certificate(&tmp, cert));
+  group_security_descriptor_t *cert = get_certificate(&NETWORK_A);
+  FAIL_NOT_0(copy_group_descriptor(&tmp, cert));
 
   etimer_set(&timer, (cert->valid_until - clock_seconds() + 1) * CLOCK_SECOND);
   tmp.valid_until = clock_seconds() + 20;

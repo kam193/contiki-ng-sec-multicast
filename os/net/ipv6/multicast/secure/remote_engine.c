@@ -1,35 +1,63 @@
+/*
+ * Copyright (c) 2020, Kamil Mańkowski
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * \addtogroup sec-multicast-engine
+ * @{
+ */
 /**
  * \file
- *         This file provides functionality needed for Randevou Point
+ * This file provides functionality needed for the engine on server
  *
- * \author  Kamil Mańkowski
+ * \author Kamil Mańkowski <kam193@wp.pl>
  *
  */
 
 #include "contiki.h"
 #include "contiki-net.h"
-#include "net/ipv6/multicast/uip-mcast6.h"
-#include "net/ipv6/multicast/secure/sec_multicast.h"
-#include "net/packetbuf.h"
-#include "net/ipv6/simple-udp.h"
-#include "os/lib/heapmem.h"
-#include "lib/random.h"
 
 #include "remote_engine.h"
+
 #include "common_engine.h"
 #include "authorization.h"
 #include "helpers.h"
 
 #define DEBUG DEBUG_PRINT
 #include "net/ipv6/uip-debug.h"
-#include "tmp_debug.h"
 
 #define MAX_ANSWER_LENGTH 1000
 
 struct secured_group {
   bool occupied;
   uint16_t refresh_period_sec;
-  struct sec_certificate key_descriptor;
+  group_security_descriptor_t key_descriptor;
 };
 typedef struct secured_group secured_group_t;
 
@@ -72,7 +100,7 @@ find_group_descriptor(const uip_ip6addr_t *addr)
 /*---------------------------------------------------------------------------*/
 /* Get current secure descriptor of the group, ready to use */
 int
-get_group_secure_description(const uip_ipaddr_t *group_addr, struct sec_certificate **cert_ptr)
+get_group_security_descriptor(const uip_ipaddr_t *group_addr, group_security_descriptor_t **cert_ptr)
 {
   secured_group_t *descriptor;
   if((descriptor = find_group_descriptor(group_addr)) == NULL) {
@@ -94,7 +122,7 @@ get_group_secure_description(const uip_ipaddr_t *group_addr, struct sec_certific
 /* Descriptor depends of MODE and basically is a chain of fields */
 /*---------------------------------------------------------------------------*/
 int
-encode_cert_to_byte(struct sec_certificate *cert, uint32_t requestor_time, uint8_t *buff, uint32_t *size)
+encode_security_descriptor_to_bytes(group_security_descriptor_t *cert, uint32_t requestor_time, uint8_t *buff, uint32_t *size)
 {
   uint32_t result_size = 0, descriptor_size = 0;
   const secure_mode_driver_t *driver = get_mode_driver(cert->mode);
@@ -125,7 +153,7 @@ encode_cert_to_byte(struct sec_certificate *cert, uint32_t requestor_time, uint8
 /*---------------------------------------------------------------------------*/
 /* Create key descriptor for group */
 int
-init_key_descriptor(struct sec_certificate *descriptor, uip_ip6addr_t *maddr, uint16_t mode)
+init_key_descriptor(group_security_descriptor_t *descriptor, uip_ip6addr_t *maddr, uint16_t mode)
 {
   uip_ip6addr_copy(&descriptor->group_addr, maddr);
   descriptor->mode = mode;
@@ -138,7 +166,7 @@ init_key_descriptor(struct sec_certificate *descriptor, uip_ip6addr_t *maddr, ui
 }
 /* Let's RP manage given group:which group, which mode and when refreshing key */
 int
-secure_group(uip_ip6addr_t *maddr, uint16_t mode, uint16_t key_refresh_period)
+register_group_security(uip_ip6addr_t *maddr, uint16_t mode, uint16_t key_refresh_period)
 {
   if(find_group_descriptor(maddr) != NULL) {
     return ERR_GROUP_EXISTS;
@@ -162,3 +190,4 @@ secure_group(uip_ip6addr_t *maddr, uint16_t mode, uint16_t key_refresh_period)
   }
   return ERR_OTHER;
 }
+/** @} */

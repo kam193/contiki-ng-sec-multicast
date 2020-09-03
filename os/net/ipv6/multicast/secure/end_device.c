@@ -84,7 +84,7 @@ ce_answer_handler(const uip_ipaddr_t *sender_addr,
     PRINTF("Decrypting answer failed\n");
     return;
   }
-  struct sec_certificate cert;
+  group_security_descriptor_t cert;
   if(decode_bytes_to_security_descriptor(&cert, buffer, out_size) != 0) {
     PRINTF("Decoding cert fails.\n");
     return;
@@ -107,11 +107,11 @@ cert_exchange_answer_callback(struct simple_udp_connection *c,
   PRINTF("Get data %d\n", flags);
 
   switch(flags) {
-  case CERT_EXCHANGE_ANSWER:
+  case GROUP_DESCRIPTOR_ANSWER:
     handler = ce_answer_handler;
     break;
 
-  case CE_RP_PUB_ANSWER:
+  case SERVER_CERT_ANSWER:
     handler = rp_public_cert_answer_handler;
     break;
 
@@ -126,8 +126,8 @@ void
 init_communication_service()
 {
   if(!initialized) {
-    simple_udp_register(&certexch_conn, CERT_ANSWER_PORT, NULL,
-                        RP_CERT_SERVER_PORT, cert_exchange_answer_callback);
+    simple_udp_register(&certexch_conn, GROUP_SEC_NODE_PORT, NULL,
+                        GROUP_SEC_SERVER_PORT, cert_exchange_answer_callback);
     initialized = true;
   }
 }
@@ -146,7 +146,7 @@ int
 send_request_group_key(const uip_ip6addr_t *mcast_addr)
 {
   /* Message format: TYPE | CERT_LEN | TIMESTAMP[4] | ADDR[16] | *PUB_CERT */
-  buffer[0] = CERT_EXCHANGE_REQUEST;
+  buffer[0] = GROUP_DESCRIPTOR_REQUEST;
 
   /* Type & cert len are not padded, timestamp+addr -> encrypted and padded */
   uint32_t padded_size = auth_count_padding(KEY_REQUEST_DATA_SIZE);
@@ -211,7 +211,7 @@ is_root_cert()
 static void
 send_root_cert_request()
 {
-  uint8_t data = CE_RP_PUB_REQUEST;
+  uint8_t data = SERVER_CERT_REQUEST;
   send_to_coordinator(&data, 1);
   PRINTF("CertExch: Send request for RP pub cert\n");
 }

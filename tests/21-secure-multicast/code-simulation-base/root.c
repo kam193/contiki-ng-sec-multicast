@@ -71,9 +71,9 @@ PROCESS_THREAD(rpl_root_process, ev, data)
   uip_ip6addr(&ipaddr_net1, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xABCD);
   uip_ip6addr(&ipaddr_net2, 0xFF1E, 0, 0, 0, 0, 0, 0x89, 0xA00D);
 
-  FAIL_NOT_0(secure_group(&ipaddr_net1, SEC_MODE_AES_CBC, 5));
-  FAIL_NOT_0(secure_group(&ipaddr_net2, SEC_MODE_AES_CBC, 5));
-  if(secure_group(&ipaddr_net2, SEC_MODE_AES_CBC, 5) != ERR_GROUP_EXISTS) {
+  FAIL_NOT_0(register_group_security(&ipaddr_net1, SEC_MODE_AES_CBC, 5));
+  FAIL_NOT_0(register_group_security(&ipaddr_net2, SEC_MODE_AES_CBC, 5));
+  if(register_group_security(&ipaddr_net2, SEC_MODE_AES_CBC, 5) != ERR_GROUP_EXISTS) {
     FAIL();
   }
 

@@ -1,43 +1,68 @@
+/*
+ * Copyright (c) 2020, Kamil Mańkowski
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * \addtogroup sec-multicast-engine
+ * @{
+ */
 /**
  * \file
- *         This is Local Secure Functions Module. It provides the functions
- *         needed for processing secure multicas communications on end devices.
+ * This is Local Secure Functions Module. It provides the functions
+ * needed for processing secure multicas communications on end devices.
  *
- * \author  Kamil Mańkowski
+ * \author Kamil Mańkowski <kam193@wp.pl>
  *
  */
 
 #include "contiki.h"
 #include "contiki-net.h"
-
-#include "net/ipv6/multicast/uip-mcast6.h"
-#include "net/ipv6/multicast/secure/sec_multicast.h"
 #include "net/packetbuf.h"
-#include "net/routing/rpl-classic/rpl.h"
 #include "net/routing/routing.h"
 
-#include <wolfssl/options.h>
-#include <wolfssl/wolfcrypt/aes.h>
-
-#define DEBUG DEBUG_PRINT
-#include "net/ipv6/uip-debug.h"
-#include "tmp_debug.h"
+#include "engine.h"
 
 #include "helpers.h"
-#include "engine.h"
-#include "authorization.h"
 #include "remote_engine.h"
 #include "common_engine.h"
 #include "end_device.h"
+
+#define DEBUG DEBUG_PRINT
+#include "net/ipv6/uip-debug.h"
 
 static bool certexch_initialized = false;
 
 struct sec_info {
   bool occupied;
-  struct sec_certificate certificate;
+  group_security_descriptor_t certificate;
 };
 typedef struct sec_info sec_info_t;
-/* TODO: descriptors db should have an marker if field is free or not */
 sec_info_t group_descriptors[SEC_MAX_GROUP_DESCRIPTORS];
 uint32_t first_free = 0;
 
@@ -79,10 +104,10 @@ static const secure_mode_driver_t *mode_drivers[] = { SEC_MODE_DRIVERS_PTR_LIST 
 PROCESS(secure_engine, "Secure engine");
 
 /*---------------------------------------------------------------------------*/
-/* CERTIFICATE EXCHANGE                                                      */
+/* GROUP DESCRIPTORS EXCHANGE                                                */
 /*---------------------------------------------------------------------------*/
 int
-decode_bytes_to_security_descriptor(struct sec_certificate *cert, const uint8_t *data, uint16_t size)
+decode_bytes_to_security_descriptor(group_security_descriptor_t *cert, const uint8_t *data, uint16_t size)
 {
   uint16_t decoded = 0;
   /* Decode header */
@@ -152,8 +177,8 @@ local_get_key(const uip_ip6addr_t *mcast_addr)
   PRINTF("Handle local key request for ");
   PRINT6ADDR(mcast_addr);
   PRINTF("\n");
-  struct sec_certificate *certificate;
-  CHECK_0(get_group_secure_description(mcast_addr, &certificate));
+  group_security_descriptor_t *certificate;
+  CHECK_0(get_group_security_descriptor(mcast_addr, &certificate));
   return import_group_security_descriptor(certificate);
 }
 int
@@ -168,7 +193,7 @@ get_certificate_for(const uip_ip6addr_t *mcast_addr)
 /*---------------------------------------------------------------------------*/
 /* Private functions                                                         */
 /*---------------------------------------------------------------------------*/
-struct sec_certificate *
+group_security_descriptor_t *
 get_certificate(uip_ip6addr_t *group_addr)
 {
   for(uint32_t i = 0; i < SEC_MAX_GROUP_DESCRIPTORS; ++i) {
@@ -190,13 +215,13 @@ get_certificate(uip_ip6addr_t *group_addr)
 /* Public functions - helpers                                                */
 /*---------------------------------------------------------------------------*/
 int
-copy_certificate(struct sec_certificate *dest, struct sec_certificate *src)
+copy_group_descriptor(group_security_descriptor_t *dest, group_security_descriptor_t *src)
 {
   const secure_mode_driver_t *driver = get_mode_driver(src->mode);
   if(driver == NULL) {
     return ERR_UNSUPPORTED_MODE;
   }
-  memcpy(dest, src, sizeof(struct sec_certificate));
+  memcpy(dest, src, sizeof(group_security_descriptor_t));
   return driver->copy_descriptor(dest, src);
 }
 const secure_mode_driver_t *
@@ -210,12 +235,10 @@ get_mode_driver(uint8_t mode)
   return NULL;
 }
 /*---------------------------------------------------------------------------*/
-
-/*---------------------------------------------------------------------------*/
 /* Public functions - main features                                          */
 /*---------------------------------------------------------------------------*/
 int
-import_group_security_descriptor(struct sec_certificate *certificate)
+import_group_security_descriptor(group_security_descriptor_t *certificate)
 {
   if(get_certificate(&certificate->group_addr) != NULL) {
     return ERR_GROUP_EXISTS;
@@ -227,7 +250,7 @@ import_group_security_descriptor(struct sec_certificate *certificate)
       continue;
     }
     group_descriptors[current].occupied = true;
-    copy_certificate(&group_descriptors[current].certificate, certificate);
+    copy_group_descriptor(&group_descriptors[current].certificate, certificate);
 
     PRINTF("Certificate for ");
     PRINT6ADDR(&certificate->group_addr);
@@ -242,7 +265,7 @@ import_group_security_descriptor(struct sec_certificate *certificate)
 }
 /*---------------------------------------------------------------------------*/
 static int
-encrypt_message(struct sec_certificate *cert, unsigned char *message, uint16_t message_len,
+encrypt_message(group_security_descriptor_t *cert, unsigned char *message, uint16_t message_len,
                 unsigned char *out_buffer, uint32_t *out_len)
 {
   const secure_mode_driver_t *driver = get_mode_driver(cert->mode);
@@ -255,7 +278,7 @@ encrypt_message(struct sec_certificate *cert, unsigned char *message, uint16_t m
 int
 process_outcomming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len)
 {
-  struct sec_certificate *cert;
+  group_security_descriptor_t *cert;
   if((cert = get_certificate(dest_addr)) == NULL) {
     PRINTF("Cert needed. Cache and request\n");
     if(cache_out_packet() == ERR_LIMIT_EXCEEDED) {
@@ -272,7 +295,7 @@ process_outcomming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t m
 }
 /*---------------------------------------------------------------------------*/
 static int
-decrypt_message(struct sec_certificate *cert, uint8_t *message, uint16_t message_len,
+decrypt_message(group_security_descriptor_t *cert, uint8_t *message, uint16_t message_len,
                 unsigned char *out_buffer, uint32_t *out_len)
 {
   const secure_mode_driver_t *driver = get_mode_driver(cert->mode);
@@ -286,7 +309,7 @@ decrypt_message(struct sec_certificate *cert, uint8_t *message, uint16_t message
 int
 process_incoming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len)
 {
-  struct sec_certificate *cert;
+  group_security_descriptor_t *cert;
   if((cert = get_certificate(dest_addr)) == NULL) {
     PRINTF("Cert needed. Cache and request\n");
     if(queue_in_packet() == ERR_LIMIT_EXCEEDED) {
@@ -442,3 +465,4 @@ PROCESS_THREAD(secure_engine, ev, data)
 
   PROCESS_END();
 }
+/** @} */

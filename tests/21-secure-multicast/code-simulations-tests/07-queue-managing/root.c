@@ -41,7 +41,7 @@ PROCESS_THREAD(rpl_root_process, ev, data)
   etimer_set(&timer, 11 * CLOCK_SECOND);
 
   PROCESS_YIELD_UNTIL(etimer_expired(&timer));
-  FAIL_NOT_0(secure_group(&NETWORK_A, SEC_MODE_AES_CBC, 90));
+  FAIL_NOT_0(register_group_security(&NETWORK_A, SEC_MODE_AES_CBC, 90));
   SIMPRINTF("Group security set\n");
 
   while(1) {

@@ -35,7 +35,7 @@ rp_public_cert_request_handler(const uip_ipaddr_t *sender_addr,
     return;
   }
   uint16_t out_size = sizeof(buffer);
-  buffer[0] = CE_RP_PUB_ANSWER;
+  buffer[0] = SERVER_CERT_ANSWER;
   if(auth_encode_cert(buffer + 2, &out_size, auth_own_pub_cert()) != 0) {
     PRINTF("Failed encoding RP PUB\n");
     return;
@@ -53,7 +53,7 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
                    const uint8_t *data,
                    uint16_t datalen)
 {
-  struct sec_certificate *cert;
+  group_security_descriptor_t *cert;
   device_cert_t client_cert;
   if(datalen < REQUEST_LEN_MIN) {
     PRINTF("CertExch: Invalid message, skipped\n");
@@ -87,7 +87,7 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
   PRINT6ADDR(&mcast_addr);
   PRINTF("\n");
 
-  if(get_group_secure_description(&mcast_addr, &cert) != 0) {
+  if(get_group_security_descriptor(&mcast_addr, &cert) != 0) {
     PRINTF("CertExch: Requested cert not found\n");
     return;
   }
@@ -97,7 +97,7 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
 
   out_size = sizeof(second_buffer);
   memset(second_buffer, 0, out_size);
-  if(encode_cert_to_byte(cert, request_timestamp, second_buffer, &out_size) != 0) {
+  if(encode_security_descriptor_to_bytes(cert, request_timestamp, second_buffer, &out_size) != 0) {
     PRINTF("Encoding cert failed\n");
     return;
   }
@@ -109,7 +109,7 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
     return;
   }
 
-  buffer[0] = CERT_EXCHANGE_ANSWER;
+  buffer[0] = GROUP_DESCRIPTOR_ANSWER;
   response_len += 1;
   simple_udp_sendto(&cert_exch, buffer, response_len, sender_addr);
   auth_free_device_cert(&client_cert);
@@ -129,11 +129,11 @@ cert_request_callback(struct simple_udp_connection *c,
 
   uint8_t type = *(data);
   switch(type) {
-  case CERT_EXCHANGE_REQUEST:
+  case GROUP_DESCRIPTOR_REQUEST:
     handler = ce_request_handler;
     break;
 
-  case CE_RP_PUB_REQUEST:
+  case SERVER_CERT_REQUEST:
     handler = rp_public_cert_request_handler;
     break;
 
@@ -148,7 +148,7 @@ cert_request_callback(struct simple_udp_connection *c,
 int
 init_cert_server()
 {
-  simple_udp_register(&cert_exch, RP_CERT_SERVER_PORT, NULL,
-                      CERT_ANSWER_PORT, cert_request_callback);
+  simple_udp_register(&cert_exch, GROUP_SEC_SERVER_PORT, NULL,
+                      GROUP_SEC_NODE_PORT, cert_request_callback);
   return 0;
 }
