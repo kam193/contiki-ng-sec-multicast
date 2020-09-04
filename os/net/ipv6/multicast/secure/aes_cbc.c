@@ -169,6 +169,15 @@ init_aes_cbc_descriptor(group_security_descriptor_t *descriptor)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
+static void
+free_aes_cbc_descriptor(group_security_descriptor_t *descriptor)
+{
+  if(descriptor->key_descriptor != NULL) {
+    free(descriptor->key_descriptor);
+    descriptor->key_descriptor = NULL;
+  }
+}
+/*---------------------------------------------------------------------------*/
 static int
 aes_cbc_descriptor_to_bytes(group_security_descriptor_t *cert, uint8_t *buff, uint32_t *size)
 {
@@ -197,7 +206,7 @@ const secure_mode_driver_t aes_cbc_driver = {
   .init_descriptor = init_aes_cbc_descriptor,
   .refresh_key = aes_cbc_refresh_key,
   .copy_descriptor = aes_cbc_copy_descriptor,
-  .free_descriptor = NULL,
+  .free_descriptor = free_aes_cbc_descriptor,
 
   .descriptor_to_bytes = aes_cbc_descriptor_to_bytes,
   .descriptor_from_bytes = aes_cbc_bytes_to_descriptor,

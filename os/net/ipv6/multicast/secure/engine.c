@@ -205,6 +205,7 @@ get_certificate(uip_ip6addr_t *group_addr)
       if(group_descriptors[i].certificate.valid_until <= clock_seconds()) {
         LOG_DBG("Group key is expired.\n");
         group_descriptors[i].occupied = false;
+        free_group_descriptor(&group_descriptors[i].certificate);
         return NULL;
       }
       return &group_descriptors[i].certificate;
@@ -234,6 +235,15 @@ get_mode_driver(uint8_t mode)
     }
   }
   return NULL;
+}
+void
+free_group_descriptor(group_security_descriptor_t *descriptor)
+{
+  const secure_mode_driver_t *driver = get_mode_driver(descriptor->mode);
+  if(driver != NULL) {
+    driver->free_descriptor(descriptor);
+    descriptor->key_descriptor = NULL;
+  }
 }
 /*---------------------------------------------------------------------------*/
 /* Public functions - main features                                          */

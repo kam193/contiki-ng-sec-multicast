@@ -38,7 +38,7 @@
  *  Engine responsible for manage and apply group security
  *
  * @{
- */ 
+ */
 /**
  * \file
  * Common group secure engine functions
@@ -58,7 +58,7 @@
 /**
  * \name Security modes
  * \anchor security-modes
- * @{ 
+ * @{
  */
 #define SEC_MODE_NONE         0 /* TODO: implement */
 #define SEC_MODE_AES_CBC      1
@@ -68,11 +68,11 @@
 
 /**
  * \name Configuration
- * @{ 
+ * @{
  */
 /**
  * Port on the server. Default 5050
- */ 
+ */
 #ifndef GROUP_SEC_SERVER_PORT
 #define GROUP_SEC_SERVER_PORT 5050
 #endif
@@ -108,7 +108,7 @@ typedef struct group_security_descriptor group_security_descriptor_t; /**< Alias
  * to a struct group_security_descriptor which contains a field key_descriptor
  * where a mode-specific data should be stored. Driver should NOT modify
  * any other fields.
- * 
+ *
  * Aliased as \ref secure_mode_driver_t
  */
 struct secure_mode_driver {
@@ -138,10 +138,13 @@ typedef struct secure_mode_driver secure_mode_driver_t; /**< Alias to the struct
 /** Deep copy of a descriptor */
 int copy_group_descriptor(group_security_descriptor_t *dest, group_security_descriptor_t *src);
 
+/** Free a group descriptor */
+void free_group_descriptor(group_security_descriptor_t *descriptor);
+
 /**
  * \brief Get the mode driver object
- * 
- * \param mode 
+ *
+ * \param mode
  * \return const secure_mode_driver_t* Pointer to the driver or NULL if not exists
  */
 const secure_mode_driver_t *get_mode_driver(uint8_t mode);
