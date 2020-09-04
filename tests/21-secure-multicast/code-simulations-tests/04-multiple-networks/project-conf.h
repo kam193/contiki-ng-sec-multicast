@@ -36,4 +36,4 @@
 
 #define UIP_MCAST6_CONF_ENGINE UIP_MCAST6_ENGINE_SEC
 
-#endif /* PROJECT_CONF_H_ */
+#endif

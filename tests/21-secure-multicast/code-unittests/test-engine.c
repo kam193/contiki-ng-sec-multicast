@@ -28,7 +28,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/*---------------------------------------------------------------------------*/
+
 #include "contiki.h"
 #include "os/net/ipv6/multicast/secure/authorization.h"
 #include "os/net/ipv6/multicast/secure/engine.h"
@@ -45,7 +45,6 @@ static char module[] = "ENGINE";
 
 static uint8_t buffer[100];
 
-/* TODO: setup & teardown */
 /*---------------------------------------------------------------------------*/
 void
 setup()

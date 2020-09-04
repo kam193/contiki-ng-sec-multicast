@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Yasuyuki Tanaka
+ * Copyright (c) 2020, Kamil Mańkowski
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,4 +35,4 @@
 #define UNIT_TEST_PRINT_FUNCTION print_test_report
 #define UIP_MCAST6_CONF_ENGINE UIP_MCAST6_ENGINE_SEC
 
-#endif /* PROJECT_CONF_H_ */
+#endif

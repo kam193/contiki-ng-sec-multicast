@@ -1,4 +1,4 @@
-all: test-authorization
+all: test-authorization test-engine
 PROJECT_SOURCEFILES += utils.c
 
 CONTIKI = ../../..
