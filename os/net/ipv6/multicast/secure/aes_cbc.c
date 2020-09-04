@@ -49,8 +49,9 @@
 #include "helpers.h"
 #include "errors.h"
 
-#define DEBUG DEBUG_PRINT
-#include "net/ipv6/uip-debug.h"
+#include "sys/log.h"
+#define LOG_MODULE  "sec_multicast"
+#define LOG_LEVEL   LOG_LEVEL_SEC_MULTICAST
 
 uint32_t return_code = 0;
 extern uint8_t buffer[UIP_BUFSIZE];

@@ -50,8 +50,9 @@
 
 #include "engine.h"
 
-#define DEBUG DEBUG_PRINT
-#include "net/ipv6/uip-debug.h"
+#include "sys/log.h"
+#define LOG_MODULE  "sec_multicast"
+#define LOG_LEVEL   LOG_LEVEL_SEC_MULTICAST
 
 static unsigned char buffer[UIP_BUFSIZE];
 extern uint16_t uip_slen;
@@ -82,6 +83,8 @@ out(void)
   memset(buffer, 0, sizeof(buffer));
   data_len = sizeof(buffer);
 
+  LOG_DBG("Out packet detected.\n");
+
   if(process_outcomming_packet(&UIP_IP_BUF->destipaddr, &(uip_buf[UIP_IPUDPH_LEN]), uip_len - UIP_IPUDPH_LEN, buffer, &data_len) == 0) {
     memcpy(&uip_buf[UIP_IPUDPH_LEN], buffer, data_len);
     uip_slen = data_len;
@@ -108,6 +111,7 @@ in()
 
   if(decision == UIP_MCAST6_ACCEPT) {
     data_len = sizeof(buffer);
+    LOG_DBG("In packet detected.\n");
 
     if(process_incoming_packet(&UIP_IP_BUF->destipaddr, &uip_buf[UIP_IPUDPH_LEN], uip_len - UIP_IPUDPH_LEN, buffer, &data_len) == PROCESS_UPPER) {
       memcpy(&uip_buf[UIP_IPUDPH_LEN], buffer, data_len);

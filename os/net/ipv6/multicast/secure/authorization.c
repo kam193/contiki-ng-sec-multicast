@@ -49,8 +49,9 @@
 
 #include "./helpers.h"
 
-#define DEBUG DEBUG_PRINT
-#include "net/ipv6/uip-debug.h"
+#include "sys/log.h"
+#define LOG_MODULE  "sec_multicast"
+#define LOG_LEVEL   LOG_LEVEL_SEC_MULTICAST
 
 static ecc_key ca_pub;
 static ecc_key own_key;
@@ -195,7 +196,7 @@ auth_encrypt_data(uint8_t *dest_data, uint32_t *dest_len,
   int ret;
   ret = wc_ecc_encrypt(&own_key, &receiver, src_data, src_len, dest_data, dest_len, NULL);
   if(ret != 0) {
-    PRINTF("ENCODING ERROR %d\n", ret);
+    LOG_ERR("Encryption error: %d\n", ret);
     return ERR_OTHER;
   }
   wc_ecc_free(&receiver);
@@ -218,7 +219,7 @@ auth_decrypt_data(uint8_t *dest_data, uint32_t *dest_len,
   int ret;
   ret = wc_ecc_decrypt(&own_key, &sender, src_data, src_len, dest_data, dest_len, NULL);
   if(ret != 0) {
-    PRINTF("DECRYPTING ERROR %d\n", ret);
+    LOG_ERR("Decryption error %d\n", ret);
     return -1;
   }
   wc_ecc_free(&sender);

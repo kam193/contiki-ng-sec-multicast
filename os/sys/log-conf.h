@@ -150,6 +150,10 @@
 #define LOG_CONF_LEVEL_MAIN                        LOG_LEVEL_INFO
 #endif /* LOG_CONF_LEVEL_MAIN */
 
+#ifndef LOG_CONF_LEVEL_SEC_MULTICAST
+#define LOG_CONF_LEVEL_SEC_MULTICAST               LOG_LEVEL_NONE
+#endif /* LOG_CONF_LEVEL_MAIN */
+
 #endif /* __LOG_CONF_H__ */
 
 /** @} */

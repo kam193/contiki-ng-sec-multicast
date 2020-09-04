@@ -50,8 +50,9 @@
 #include "authorization.h"
 #include "helpers.h"
 
-#define DEBUG DEBUG_PRINT
-#include "net/ipv6/uip-debug.h"
+#include "sys/log.h"
+#define LOG_MODULE  "sec_multicast"
+#define LOG_LEVEL   LOG_LEVEL_SEC_MULTICAST
 
 #define REQUEST_LEN_MIN 2 + 32
 #define MAX_ANSWER_LENGTH 1000
@@ -72,13 +73,13 @@ rp_public_cert_request_handler(const uip_ipaddr_t *sender_addr,
   uint16_t out_size = sizeof(buffer);
   buffer[0] = SERVER_CERT_ANSWER;
   if(auth_encode_cert(buffer + 2, &out_size, auth_own_pub_cert()) != 0) {
-    PRINTF("Failed encoding RP PUB\n");
+    LOG_ERR("Failed encoding own (root) certificate to pub\n");
     return;
   }
   buffer[1] = out_size;
-  PRINTF("CertExch: Sending RP pub answer to ");
-  PRINT6ADDR(sender_addr);
-  PRINTF("\n");
+  LOG_DBG("Sending root cert answer to ");
+  LOG_6ADDR(LOG_LEVEL_DBG, sender_addr);
+  LOG_DBG("\n");
   simple_udp_sendto(&cert_exch, buffer, out_size + 2, sender_addr);
 }
 /*---------------------------------------------------------------------------*/
@@ -91,25 +92,25 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
   group_security_descriptor_t *cert;
   device_cert_t client_cert;
   if(datalen < REQUEST_LEN_MIN) {
-    PRINTF("CertExch: Invalid message, skipped\n");
+    LOG_ERR("Invalid message, skipped\n");
     return;
   }
 
   uint8_t cert_len = data[1];
   if(auth_decode_cert(&client_cert, data + (datalen - cert_len), cert_len) != 0) {
-    PRINTF("Decoding client cert failed\n");
+    LOG_ERR("Decoding node cert failed\n");
     return;
   }
 
   if(auth_verify_cert(&client_cert) != 0) {
-    PRINTF("Failed verify client cert\n");
+    LOG_ERR("Failed verify node cert\n");
     return;
   }
 
   uint8_t tmp[32];
   uint32_t out_size = sizeof(tmp);
   if(auth_decrypt_data(tmp, &out_size, data + 2, datalen - cert_len - 2, &client_cert) != 0) {
-    PRINTF("Decripting failed\n");
+    LOG_ERR("Decripting request from node failed\n");
     return;
   }
 
@@ -118,29 +119,29 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
 
   unsigned long request_timestamp;
   memcpy(&request_timestamp, tmp, TIMESTAMP_SIZE);
-  PRINTF("CertExch: GOT REQUEST FOR: ");
-  PRINT6ADDR(&mcast_addr);
-  PRINTF("\n");
+  LOG_DBG("Got descriptor request for group: ");
+  LOG_6ADDR(LOG_LEVEL_DBG, &mcast_addr);
+  LOG_DBG("\n");
 
   if(get_group_security_descriptor(&mcast_addr, &cert) != 0) {
-    PRINTF("CertExch: Requested cert not found\n");
+    LOG_ERR("Requested descriptor not found\n");
     return;
   }
-  PRINTF("CertExch: Sending cert answer to ");
-  PRINT6ADDR(sender_addr);
-  PRINTF("\n");
+  LOG_DBG("Sending descriptor answer to ");
+  LOG_6ADDR(LOG_LEVEL_DBG, sender_addr);
+  LOG_DBG("\n");
 
   out_size = sizeof(second_buffer);
   memset(second_buffer, 0, out_size);
   if(encode_security_descriptor_to_bytes(cert, request_timestamp, second_buffer, &out_size) != 0) {
-    PRINTF("Encoding cert failed\n");
+    LOG_ERR("Encoding group descriptor failed\n");
     return;
   }
   out_size = auth_count_padding(out_size);
   /* TODO: set padding to buffer */
   uint32_t response_len = sizeof(buffer) - 1;
   if(auth_encrypt_data(buffer + 1, &response_len, second_buffer, out_size, &client_cert) != 0) {
-    PRINTF("Encrypt response failed\n");
+    LOG_ERR("Encrypting response failed\n");
     return;
   }
 
@@ -173,7 +174,7 @@ cert_request_callback(struct simple_udp_connection *c,
     break;
 
   default:
-    PRINTF("Invalid message type, skiped\n");
+    LOG_ERR("Invalid message type, skiped\n");
     return;
   }
 

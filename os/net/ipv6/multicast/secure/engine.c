@@ -53,8 +53,9 @@
 #include "common_engine.h"
 #include "end_device.h"
 
-#define DEBUG DEBUG_PRINT
-#include "net/ipv6/uip-debug.h"
+#include "sys/log.h"
+#define LOG_MODULE  "sec_multicast"
+#define LOG_LEVEL   LOG_LEVEL_SEC_MULTICAST
 
 static bool certexch_initialized = false;
 
@@ -174,9 +175,9 @@ queue_in_packet()
 static int
 local_get_key(const uip_ip6addr_t *mcast_addr)
 {
-  PRINTF("Handle local key request for ");
-  PRINT6ADDR(mcast_addr);
-  PRINTF("\n");
+  LOG_INFO("Handle local key request for ");
+  LOG_6ADDR(LOG_LEVEL_INFO, mcast_addr);
+  LOG_INFO("\n");
   group_security_descriptor_t *certificate;
   CHECK_0(get_group_security_descriptor(mcast_addr, &certificate));
   return import_group_security_descriptor(certificate);
@@ -202,7 +203,7 @@ get_certificate(uip_ip6addr_t *group_addr)
     }
     if(uip_ip6addr_cmp(&group_descriptors[i].certificate.group_addr, group_addr)) {
       if(group_descriptors[i].certificate.valid_until <= clock_seconds()) {
-        PRINTF("Group key is expired.\n");
+        LOG_DBG("Group key is expired.\n");
         group_descriptors[i].occupied = false;
         return NULL;
       }
@@ -252,15 +253,15 @@ import_group_security_descriptor(group_security_descriptor_t *certificate)
     group_descriptors[current].occupied = true;
     copy_group_descriptor(&group_descriptors[current].certificate, certificate);
 
-    PRINTF("Certificate for ");
-    PRINT6ADDR(&certificate->group_addr);
-    PRINTF(" is set\n");
+    LOG_DBG("Group descriptor for ");
+    LOG_6ADDR(LOG_LEVEL_DBG, &certificate->group_addr);
+    LOG_DBG(" is set\n");
 
     process_post(&secure_engine, NEW_KEY_EVENT, &certificate->group_addr);
 
     return 0;
   }
-  PRINTF("No more space for cer\n");
+  LOG_ERR("No more space for group descriptors\n");
   return ERR_LIMIT_EXCEEDED;
 }
 /*---------------------------------------------------------------------------*/
@@ -280,9 +281,9 @@ process_outcomming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t m
 {
   group_security_descriptor_t *cert;
   if((cert = get_certificate(dest_addr)) == NULL) {
-    PRINTF("Cert needed. Cache and request\n");
+    LOG_DBG("Group descriptor needed. Cache and request\n");
     if(cache_out_packet() == ERR_LIMIT_EXCEEDED) {
-      PRINTF("Waiting OUT queue limit exceeded, packet dropped\n");
+      LOG_ERR("Waiting OUT queue limit exceeded, packet dropped\n");
     } else {
       get_certificate_for(dest_addr);
     }
@@ -311,9 +312,9 @@ process_incoming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t mes
 {
   group_security_descriptor_t *cert;
   if((cert = get_certificate(dest_addr)) == NULL) {
-    PRINTF("Cert needed. Cache and request\n");
+    LOG_DBG("Group descriptor needed. Cache and request\n");
     if(queue_in_packet() == ERR_LIMIT_EXCEEDED) {
-      PRINTF("Waiting IN queue limit exceeded, packet dropped\n");
+      LOG_ERR("Waiting IN queue limit exceeded, packet dropped\n");
     } else {
       get_certificate_for(dest_addr);
     }
@@ -334,7 +335,7 @@ delivery_in_packet(size_t i)
 {
   memcpy(&uip_buf, in_queue[i].data, in_queue[i].len);
   uip_len = in_queue[i].len;
-  PRINTF("Delivery queued packet. Time waiting: %d\n", clock_time() - in_queue[i].time_cached);
+  LOG_DBG("Delivery queued packet. Time waiting: %d\n", clock_time() - in_queue[i].time_cached);
   in_queue[i].len = 0;
   in_queue_free += 1;
   uip_process(UIP_DATA);
@@ -370,14 +371,14 @@ retry_on_queue_in()
       if(get_certificate(&IN_QUEUE_ADDR(i)) != NULL) {
         delivery_in_packet(i);
       } else if(in_queue[i].retry_count >= SEC_QUEUE_MAX_RETRY) {
-        PRINTF("IN packet timeouted after %d. Dropped\n", time_diff);
+        LOG_ERR("IN packet timeouted after %d. Dropped\n", time_diff);
         in_queue[i].len = 0;
         in_queue_free++;
       } else {
         in_queue[i].retry_count++;
-        PRINTF("Retry request (attempt %d) group key for ", in_queue[i].retry_count);
-        PRINT6ADDR(&IN_QUEUE_ADDR(i));
-        PRINTF("\n");
+        LOG_DBG("Retry request (attempt %d) group key for ", in_queue[i].retry_count);
+        LOG_6ADDR(LOG_LEVEL_DBG, &IN_QUEUE_ADDR(i));
+        LOG_DBG("\n");
         get_certificate_for(&IN_QUEUE_ADDR(i));
       }
     }
@@ -388,7 +389,7 @@ static void
 delivery_out_packet(size_t i)
 {
   uip_udp_packet_send(out_queue[i].conn, out_queue[i].data, out_queue[i].slen);
-  PRINTF("Send queued packet. Time waiting: %d\n", clock_time() - out_queue[i].time_cached);
+  LOG_DBG("Send queued packet. Time waiting: %d\n", clock_time() - out_queue[i].time_cached);
   out_queue[i].slen = 0;
   out_queue_free++;
 }
@@ -422,14 +423,14 @@ retry_on_queue_out()
       if(get_certificate(&out_queue[i].conn->ripaddr) != NULL) {
         delivery_out_packet(i);
       } else if(out_queue[i].retry_count >= SEC_QUEUE_MAX_RETRY) {
-        PRINTF("OUT packet timeouted after %d. Dropped\n", time_diff);
+        LOG_ERR("OUT packet timeouted after %d. Dropped\n", time_diff);
         out_queue[i].slen = 0;
         out_queue_free++;
       } else {
         out_queue[i].retry_count++;
-        PRINTF("Retry request (attempt %d) group key for ", out_queue[i].retry_count);
-        PRINT6ADDR(&out_queue[i].conn->ripaddr);
-        PRINTF("\n");
+        LOG_DBG("Retry request (attempt %d) group key for ", out_queue[i].retry_count);
+        LOG_6ADDR(LOG_LEVEL_DBG, &out_queue[i].conn->ripaddr);
+        LOG_DBG("\n");
         get_certificate_for(&out_queue[i].conn->ripaddr);
       }
     }

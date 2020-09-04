@@ -52,8 +52,9 @@
 #include "engine.h"
 #include "authorization.h"
 
-#define DEBUG DEBUG_PRINT
-#include "net/ipv6/uip-debug.h"
+#include "sys/log.h"
+#define LOG_MODULE  "sec_multicast"
+#define LOG_LEVEL   LOG_LEVEL_SEC_MULTICAST
 
 #define RETRY_PAUSE 1000
 #define MAX_RETRY   100
@@ -94,16 +95,16 @@ rp_public_cert_answer_handler(const uip_ipaddr_t *sender_addr,
     return;
   }
   if(auth_decode_cert(&tmp, data + 2, (uint16_t)(data[1])) != 0) {
-    PRINTF("RP PUB decode error\n");
+    LOG_ERR("Root certificate decode error\n");
     return;
   }
   if(auth_verify_cert(&tmp) != 0) {
-    PRINTF("RP PUB verify error\n");
+    LOG_ERR("Root certificate verification failed\n");
     return;
   }
   import_root_cert(&tmp);
   auth_free_device_cert(&tmp);
-  PRINTF("GOT RP PUB!\n");
+  LOG_INFO("Root certificat imported\n");
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -114,12 +115,12 @@ ce_answer_handler(const uip_ipaddr_t *sender_addr,
 {
   uint32_t out_size = sizeof(buffer);
   if(auth_decrypt_data(buffer, &out_size, data + 1, datalen - 1, root_pub_cert()) != 0) {
-    PRINTF("Decrypting answer failed\n");
+    LOG_ERR("Decrypting answer from root failed\n");
     return;
   }
   group_security_descriptor_t cert;
   if(decode_bytes_to_security_descriptor(&cert, buffer, out_size) != 0) {
-    PRINTF("Decoding cert fails.\n");
+    LOG_ERR("Decoding secure descriptor failed\n");
     return;
   }
   import_group_security_descriptor(&cert);
@@ -137,7 +138,6 @@ cert_exchange_answer_callback(struct simple_udp_connection *c,
 
   /* TODO: max data len */
   uint8_t flags = *(data);
-  PRINTF("Get data %d\n", flags);
 
   switch(flags) {
   case GROUP_DESCRIPTOR_ANSWER:
@@ -149,7 +149,7 @@ cert_exchange_answer_callback(struct simple_udp_connection *c,
     break;
 
   default:
-    PRINTF("CertExch: Invalid message, skipped\n");
+    LOG_ERR("Got invalid message, ignoring\n");
     return;
   }
   handler(sender_addr, sender_port, data, datalen);
@@ -195,7 +195,7 @@ send_request_group_key(const uip_ip6addr_t *mcast_addr)
 
   uint32_t size = sizeof(buffer) - padded_size;
   if(auth_encrypt_data(buffer + 2, &size, tmp, padded_size, root_pub_cert()) != 0) {
-    PRINTF("Encoding error\n");
+    LOG_ERR("Encrypting group secure request failed\n");
     return -1;
   }
   size += 2;
@@ -206,9 +206,9 @@ send_request_group_key(const uip_ip6addr_t *mcast_addr)
   buffer[1] = (uint8_t)cert_len;
 
   send_to_coordinator(buffer, size + cert_len);
-  PRINTF("CertExch: Send request for %d ", size);
-  PRINT6ADDR(mcast_addr);
-  PRINTF("\n");
+  LOG_INFO("Send descriptor request for group");
+  LOG_6ADDR(LOG_LEVEL_INFO, mcast_addr);
+  LOG_INFO("\n");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -220,9 +220,9 @@ get_root_cert()
   }
 
   free_root_cert();
-
   process_start(&getting_root_cert, NULL);
-  PRINTF("Starting requesting root cert\n");
+
+  LOG_INFO("Starting requesting root cert\n");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -246,7 +246,7 @@ send_root_cert_request()
 {
   uint8_t data = SERVER_CERT_REQUEST;
   send_to_coordinator(&data, 1);
-  PRINTF("CertExch: Send request for RP pub cert\n");
+  LOG_INFO("Send equest for root certificate\n");
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(getting_root_cert, ev, data)
@@ -264,14 +264,14 @@ PROCESS_THREAD(getting_root_cert, ev, data)
       break;
     }
     if(retries >= MAX_RETRY) {
-      PRINTF("Cannot get root address, giving up after %d\n", retries);
+      LOG_ERR("Cannot get root address, giving up after %d retries\n", retries);
       PROCESS_EXIT();
     }
     ++retries;
     etimer_set(&timer, RETRY_PAUSE + RANDOMIZE());
     PROCESS_YIELD_UNTIL(etimer_expired(&timer));
   }
-  PRINTF("Root is reachable\n");
+  LOG_DBG("Root is reachable\n");
 
   /* Now, get the certificate */
   retries = 0;
@@ -281,15 +281,15 @@ PROCESS_THREAD(getting_root_cert, ev, data)
   while(1) {
     PROCESS_YIELD_UNTIL(etimer_expired(&timer));
     if(is_root_cert()) {
-      PRINTF("Root cert got, finishing\n");
+      LOG_INFO("Root cert got, finishing\n");
       break;
     }
     if(retries > MAX_RETRY) {
-      PRINTF("Cannot get root cert. Giving up\n");
+      LOG_ERR("Cannot get root cert. Giving up\n");
       break;
     }
     ++retries;
-    PRINTF("Sending retry %d request root cert\n", retries);
+    LOG_DBG("Sending retry %d request root cert\n", retries);
     send_root_cert_request();
     etimer_set(&timer, RETRY_PAUSE + RANDOMIZE());
   }

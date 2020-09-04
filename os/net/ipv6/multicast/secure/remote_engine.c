@@ -49,8 +49,9 @@
 #include "authorization.h"
 #include "helpers.h"
 
-#define DEBUG DEBUG_PRINT
-#include "net/ipv6/uip-debug.h"
+#include "sys/log.h"
+#define LOG_MODULE  "sec_multicast"
+#define LOG_LEVEL   LOG_LEVEL_SEC_MULTICAST
 
 #define MAX_ANSWER_LENGTH 1000
 
@@ -76,11 +77,10 @@ recreate_group_key(secured_group_t *group_descriptor)
   }
   CHECK_0(driver->refresh_key(&group_descriptor->key_descriptor));
 
-  /* group_descriptor->last_refresh_sec = clock_seconds(); */
   group_descriptor->key_descriptor.valid_until = clock_seconds() + group_descriptor->refresh_period_sec;
-  PRINTF("Group key for ");
-  PRINT6ADDR(&group_descriptor->key_descriptor.group_addr);
-  PRINTF(" recreated\n");
+  LOG_DBG("Group key for ");
+  LOG_6ADDR(LOG_LEVEL_DBG, &group_descriptor->key_descriptor.group_addr);
+  LOG_DBG(" recreated\n");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -183,9 +183,9 @@ register_group_security(uip_ip6addr_t *maddr, uint16_t mode, uint16_t key_refres
     groups[i].key_descriptor.valid_until = 0;
     groups[i].refresh_period_sec = key_refresh_period;
     init_key_descriptor(&groups[i].key_descriptor, maddr, mode);
-    PRINTF("Now secure group ");
-    PRINT6ADDR(maddr);
-    PRINTF("\n");
+    LOG_INFO("Set security config for group ");
+    LOG_6ADDR(LOG_LEVEL_INFO, maddr);
+    LOG_INFO("\n");
     return 0;
   }
   return ERR_OTHER;
