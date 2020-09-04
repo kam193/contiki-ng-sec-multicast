@@ -41,7 +41,7 @@ PROCESS_THREAD(mcast_sink_process, ev, data)
 
   FAIL_NOT_0(auth_import_ca_cert(&ca));
   FAIL_NOT_0(auth_import_own_cert(&c3_private_cert));
-  FAIL_NOT_0(get_rp_cert());
+  FAIL_NOT_0(get_root_cert());
 
   WAIT_UNTIL_ROOT_CERT();
 

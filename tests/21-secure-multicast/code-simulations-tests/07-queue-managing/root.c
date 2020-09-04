@@ -35,7 +35,7 @@ PROCESS_THREAD(rpl_root_process, ev, data)
   FAIL_NOT_0(auth_import_own_cert(&rp_private_cert));
 
   NETSTACK_ROUTING.root_start();
-  FAIL_NOT_0(init_cert_server());
+  FAIL_NOT_0(start_group_descriptors_server());
   SIMPRINTF("Root initialized\n");
 
   etimer_set(&timer, 11 * CLOCK_SECOND);

@@ -85,7 +85,7 @@ PROCESS_THREAD(rpl_root_process, ev, data)
   prepare_mcast(&ipaddr_net1, &mcast_net_1);
   prepare_mcast(&ipaddr_net2, &mcast_net_2);
 
-  FAIL_NOT_0(init_cert_server());
+  FAIL_NOT_0(start_group_descriptors_server());
 
   etimer_set(&et, START_DELAY * CLOCK_SECOND);
   while(1) {

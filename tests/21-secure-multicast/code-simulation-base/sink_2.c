@@ -81,14 +81,14 @@ PROCESS_THREAD(mcast_sink_process, ev, data)
   while(1) {
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
     if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&root_addr)) {
-      FAIL_NOT_0(get_rp_cert());
+      FAIL_NOT_0(get_root_cert());
       PRINTF("[SIMULATION] Got RP cert\n");
       break;
     }
     etimer_set(&periodic_timer, 200);
   }
 
-  /* Since get_rp_cert is not-blocking */
+  /* Since get_root_cert is not-blocking */
   etimer_set(&periodic_timer, 2 * CLOCK_SECOND);
   PROCESS_YIELD_UNTIL(etimer_expired(&periodic_timer));
   etimer_stop(&periodic_timer);

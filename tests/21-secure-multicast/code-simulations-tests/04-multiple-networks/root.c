@@ -37,7 +37,7 @@ PROCESS_THREAD(rpl_root_process, ev, data)
 
   NETSTACK_ROUTING.root_start();
 
-  FAIL_NOT_0(init_cert_server());
+  FAIL_NOT_0(start_group_descriptors_server());
 
   SIMPRINTF("Root initialized\n");
 

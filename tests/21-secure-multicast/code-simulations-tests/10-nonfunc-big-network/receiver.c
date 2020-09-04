@@ -60,7 +60,7 @@ PROCESS_THREAD(mcast_sink_process, ev, data)
   etimer_set(&timer, pause);
   PROCESS_YIELD_UNTIL(etimer_expired(&timer));
 
-  FAIL_NOT_0(get_rp_cert());
+  FAIL_NOT_0(get_root_cert());
 
   WAIT_UNTIL_ROOT_CERT();
 
