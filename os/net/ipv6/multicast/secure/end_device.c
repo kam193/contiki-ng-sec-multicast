@@ -206,7 +206,7 @@ send_request_group_key(const uip_ip6addr_t *mcast_addr)
   buffer[1] = (uint8_t)cert_len;
 
   send_to_coordinator(buffer, size + cert_len);
-  LOG_INFO("Send descriptor request for group");
+  LOG_INFO("Send descriptor request for group ");
   LOG_6ADDR(LOG_LEVEL_INFO, mcast_addr);
   LOG_INFO("\n");
   return 0;

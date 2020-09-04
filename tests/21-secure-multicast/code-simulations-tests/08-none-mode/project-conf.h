@@ -28,76 +28,14 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/**
- * \addtogroup sec-multicast-engine
- * @{
- */
-/**
- * \file
- * Header for providing secure functions for messages. This is
- * Local Secure Functions Module
- *
- * \author Kamil Mańkowski <kam193@wp.pl>
- *
- */
 
-#ifndef ENGINE_H_
-#define ENGINE_H_
+#ifndef PROJECT_CONF_H_
+#define PROJECT_CONF_H_
 
-#include "contiki.h"
-#include <stdint.h>
+#include "net/ipv6/multicast/uip-mcast6-engines.h"
 
-#include "net/ipv6/uip.h"
-#include "errors.h"
-#include "common_engine.h"
-#include "aes_cbc.h"
-#include "none_mode.h"
+#define UIP_MCAST6_CONF_ENGINE UIP_MCAST6_ENGINE_SEC
 
-/**
- * \name Node configuration
- * @{
- */
-#ifndef SEC_MAX_GROUP_DESCRIPTORS
-#define SEC_MAX_GROUP_DESCRIPTORS 3
-#endif
+#define LOG_CONF_LEVEL_SEC_MULTICAST LOG_LEVEL_DBG
 
-#ifndef SEC_MAX_QUEUE_SIZE
-#define SEC_MAX_QUEUE_SIZE 5
-#endif
-
-#ifndef SEC_QUEUE_RETRY_TIME
-#define SEC_QUEUE_RETRY_TIME 500
-#endif
-
-#ifndef SEC_QUEUE_MAX_RETRY
-#define SEC_QUEUE_MAX_RETRY 5
-#endif
-
-#ifndef SEC_MODE_DRIVERS_LIST
-#define SEC_MODE_DRIVERS_PTR_LIST &aes_cbc_driver, &none_driver
-#endif
-/** @} */
-
-/**
- * \name Packet processing
- * @{
- */
-#define PROCESS_UPPER   0
-#define DROP_PACKET     1
-
-int process_incoming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len);
-int process_outcomming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len);
-/** @} */
-
-/**
- * \name Group security descriptors management.
- * @{
- */
-int decode_bytes_to_security_descriptor(group_security_descriptor_t *cert, const uint8_t *data, uint16_t size);
-int import_group_security_descriptor(group_security_descriptor_t *certificate);
-/** @} */
-
-/* TODO: general init engine */
-
-#endif
-/** @} */
+#endif /* PROJECT_CONF_H_ */

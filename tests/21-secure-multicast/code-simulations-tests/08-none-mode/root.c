@@ -27,77 +27,47 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ * 
+ * This file based on the examples/multicast/root.c
  */
-/**
- * \addtogroup sec-multicast-engine
- * @{
- */
-/**
- * \file
- * Header for providing secure functions for messages. This is
- * Local Secure Functions Module
- *
- * \author Kamil Mańkowski <kam193@wp.pl>
- *
- */
-
-#ifndef ENGINE_H_
-#define ENGINE_H_
 
 #include "contiki.h"
-#include <stdint.h>
+#include "contiki-net.h"
+#include "net/ipv6/multicast/uip-mcast6.h"
+#include "net/ipv6/multicast/secure/authorization.h"
+#include "net/ipv6/multicast/secure/remote_engine.h"
+#include "net/ipv6/multicast/secure/server.h"
+#include "net/routing/routing.h"
 
-#include "net/ipv6/uip.h"
-#include "errors.h"
-#include "common_engine.h"
-#include "aes_cbc.h"
-#include "none_mode.h"
+#include "../certs.h"
+#include "../utils.h"
 
-/**
- * \name Node configuration
- * @{
- */
-#ifndef SEC_MAX_GROUP_DESCRIPTORS
-#define SEC_MAX_GROUP_DESCRIPTORS 3
-#endif
+#define DEBUG DEBUG_PRINT
+#include "net/ipv6/uip-debug.h"
 
-#ifndef SEC_MAX_QUEUE_SIZE
-#define SEC_MAX_QUEUE_SIZE 5
-#endif
+/*---------------------------------------------------------------------------*/
+PROCESS(root_process, "ROOT");
+AUTOSTART_PROCESSES(&root_process);
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(root_process, ev, data)
+{
+  PROCESS_BEGIN();
 
-#ifndef SEC_QUEUE_RETRY_TIME
-#define SEC_QUEUE_RETRY_TIME 500
-#endif
+  FAIL_NOT_0(auth_import_ca_cert(&ca));
+  FAIL_NOT_0(auth_import_own_cert(&rp_private_cert));
 
-#ifndef SEC_QUEUE_MAX_RETRY
-#define SEC_QUEUE_MAX_RETRY 5
-#endif
+  FAIL_NOT_0(register_group_security(&NETWORK_A, SEC_MODE_NONE, 3600));
 
-#ifndef SEC_MODE_DRIVERS_LIST
-#define SEC_MODE_DRIVERS_PTR_LIST &aes_cbc_driver, &none_driver
-#endif
-/** @} */
+  NETSTACK_ROUTING.root_start();
 
-/**
- * \name Packet processing
- * @{
- */
-#define PROCESS_UPPER   0
-#define DROP_PACKET     1
+  FAIL_NOT_0(start_group_descriptors_server());
 
-int process_incoming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len);
-int process_outcomming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len);
-/** @} */
+  SIMPRINTF("Root initialized\n");
 
-/**
- * \name Group security descriptors management.
- * @{
- */
-int decode_bytes_to_security_descriptor(group_security_descriptor_t *cert, const uint8_t *data, uint16_t size);
-int import_group_security_descriptor(group_security_descriptor_t *certificate);
-/** @} */
+  while(1) {
+    PROCESS_YIELD();
+  }
 
-/* TODO: general init engine */
-
-#endif
-/** @} */
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/
