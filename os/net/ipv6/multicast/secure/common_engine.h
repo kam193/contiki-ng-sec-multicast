@@ -57,6 +57,7 @@
 
 /**
  * \name Security modes
+ * \anchor security-modes
  * @{ 
  */
 #define SEC_MODE_NONE         0 /* TODO: implement */
@@ -89,29 +90,48 @@
  * Aliased as \ref group_security_descriptor_t
  */
 struct group_security_descriptor {
+  /** IPv6 group address */
   uip_ip6addr_t group_addr;
+  /** The security mode code */
   uint8_t mode;
+  /** Expiration time (in sec) */
   uint32_t valid_until;
+  /** A field for holding mode-specific data */
   void *key_descriptor;
 };
 typedef struct group_security_descriptor group_security_descriptor_t; /**< Alias to struct group_security_descriptor */
 
 /**
- * \brief A driver to handle specific securing mode, e.g. AES-CBC.
+ * \brief A driver to handle specific securing mode.
+ * Driver contains pointers to the functions that implement support for
+ * different mode-specific operations. Each function get the pointer
+ * to a struct group_security_descriptor which contains a field key_descriptor
+ * where a mode-specific data should be stored. Driver should NOT modify
+ * any other fields.
+ * 
  * Aliased as \ref secure_mode_driver_t
  */
 struct secure_mode_driver {
+  /** Mode code. Default modes are defined  \ref security-modes "here" */
   uint8_t mode;
-  int (*init_descriptor) (group_security_descriptor_t *descriptor);
-  int (*refresh_key) (group_security_descriptor_t *key_descriptor);
+  /** Mode descriptor initialization. Descriptor should contain a key and will be sent to the nodes */
+  int (*init_descriptor) (group_security_descriptor_t *group_descriptor);
+  /** Refresh a key */
+  int (*refresh_key) (group_security_descriptor_t *group_descriptor);
+  /** Copy the mode descriptor */
   int (*copy_descriptor) (group_security_descriptor_t *dest, group_security_descriptor_t *src);
+  /** Refresh a key */
   void (*free_descriptor) (group_security_descriptor_t *descriptor);
 
+  /** Encode a mode descriptor to the byte array */
   int (*descriptor_to_bytes) (group_security_descriptor_t *cert, uint8_t *buff, uint32_t *size);
+  /** Decode a mode descriptor from the byte array */
   int (*descriptor_from_bytes) (group_security_descriptor_t *cert, const uint8_t *data, uint16_t size);
 
-  int (*encrypt) (group_security_descriptor_t *cert, unsigned char *message, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len);
-  int (*decrypt) (group_security_descriptor_t *cert, unsigned char *message, uint16_t message_len, unsigned char *out_buffer, uint32_t *out_len);
+  /** Encrypt data */
+  int (*encrypt) (group_security_descriptor_t *cert, const uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len);
+  /** Decrypt data */
+  int (*decrypt) (group_security_descriptor_t *cert, const uint8_t *message, uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len);
 };
 typedef struct secure_mode_driver secure_mode_driver_t; /**< Alias to the struct secure_mode_driver */
 
