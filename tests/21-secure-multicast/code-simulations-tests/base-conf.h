@@ -28,50 +28,32 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/**
- * \addtogroup uip-multicast
- * @{
- */
-/**
- * \defgroup sec-multicast Secure Multicast Layer
- *
- *  Additional layer that implement a solution for secure
- *  transport multicast data.
- *
- * @{
- */
-/**
- * \file
- * This file declare a multicast engine used to act as security
- * layer. The real multicast engine can be configured.
- *
- * \author
- *      Kamil Mańkowski  <kam193@wp.pl>
- *
- */
 
-#ifndef SEC_MULTICAST_H_
-#define SEC_MULTICAST_H_
+#ifndef BASE_CONF_H_
+#define BASE_CONF_H_
 
-#include "contiki.h"
 #include "net/ipv6/multicast/uip-mcast6-engines.h"
 
-/**
- * \brief Configure the multicast engine used in the underlay.
- * 
- * If not set in the configuration, the SMRF is used.
- *
- */
-#ifndef SEC_MULTICAST_BASE_DRIVER
-#define SEC_MULTICAST_BASE_DRIVER smrf_driver
+#ifdef MCAST_ONLY_DEVICE    /* For devices without multicast security */
+#define UIP_MCAST6_CONF_ENGINE UIP_MCAST6_ENGINE_SMRF
 
-#if UIP_MCAST6_CONF_ENGINE && UIP_MCAST6_CONF_ENGINE == UIP_MCAST6_ENGINE_SEC
-#define RPL_WITH_MULTICAST 1
+/* For MPL use: */
+/* #define UIP_MCAST6_CONF_ENGINE UIP_MCAST6_ENGINE_MPL */
+/* #define RPL_WITH_MULTICAST     0 */
+/* #define MPL_CONF_DOMAIN_SET_SIZE 3 */
+
+#else
+#define UIP_MCAST6_CONF_ENGINE UIP_MCAST6_ENGINE_SEC
+
+/* For MPL use: */
+/* #define SEC_MULTICAST_BASE_DRIVER mpl_driver */
+/* #define RPL_WITH_MULTICAST     0 */
+/* #define MPL_CONF_DOMAIN_SET_SIZE 3 */
+/* REMEMBER to patch os/net/ipv6/uip6.c in about 857 line */
+/* the command "#if UIP_MCAST6_ENGINE == UIP_MCAST6_ENGINE_MPL" */
 #endif
+
+#define LOG_CONF_LEVEL_SEC_MULTICAST LOG_LEVEL_ERR
+#define LOG_CONF_LEVEL_RPL LOG_LEVEL_DBG
+
 #endif
-
-extern const struct uip_mcast6_driver SEC_MULTICAST_BASE_DRIVER;
-
-#endif /* SEC_MULTICAST_H_ */
-/** @} */
-/** @} */

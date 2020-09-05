@@ -71,7 +71,7 @@ PROCESS_THREAD(sender, ev, data)
   PROCESS_YIELD_UNTIL(etimer_expired(&timer));
   multicast_send(mcast_net_1, "this_is_test", 12);
 
-  etimer_set(&timer, 7 * CLOCK_SECOND);
+  etimer_set(&timer, 12 * CLOCK_SECOND);
   PROCESS_YIELD_UNTIL(etimer_expired(&timer));
   multicast_send(mcast_net_1, "test_after_refresh", 19);
 

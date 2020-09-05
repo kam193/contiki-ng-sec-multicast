@@ -57,6 +57,8 @@
 #define LOG_MODULE  "sec_multicast"
 #define LOG_LEVEL   LOG_LEVEL_SEC_MULTICAST
 
+int mark_packet_from_cache = 0;
+
 static bool certexch_initialized = false;
 
 struct sec_info {
@@ -101,6 +103,9 @@ uip_ip6addr_t expected;
 #define NEW_KEY_EVENT 0x61
 
 static const secure_mode_driver_t *mode_drivers[] = { SEC_MODE_DRIVERS_PTR_LIST };
+
+static uip_ip6addr_t *last_requested[SEC_MAX_QUEUE_SIZE];
+static size_t last_requested_idx = 0;
 
 PROCESS(secure_engine, "Secure engine");
 
@@ -313,8 +318,7 @@ decrypt_message(group_security_descriptor_t *cert, uint8_t *message, uint16_t me
   if(driver == NULL) {
     return ERR_UNSUPPORTED_MODE;
   }
-  CHECK_0(driver->decrypt(cert, message, message_len, out_buffer, out_len));
-  return 0;
+  return driver->decrypt(cert, message, message_len, out_buffer, out_len);
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -330,7 +334,9 @@ process_incoming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t mes
     }
     return DROP_PACKET;
   }
-  if(decrypt_message(cert, message, message_len, out_buffer, out_len) != 0) {
+  int ret = decrypt_message(cert, message, message_len, out_buffer, out_len);
+  if(ret != 0) {
+    LOG_ERR("Decrypting error %d\n", ret);
     return DROP_PACKET;
   }
   return PROCESS_UPPER;
@@ -338,7 +344,27 @@ process_incoming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16_t mes
 /*---------------------------------------------------------------------------*/
 /* MANAGING QUEUE */
 /*---------------------------------------------------------------------------*/
-
+/* was_requested and save_requested are used for limiting sending request */
+/* for one group to one time during one retry session (see process above). */
+/* The list don't need to be valid after it. */
+static bool
+was_requested(uip_ip6addr_t *addr)
+{
+  for(size_t i = 0; i < last_requested_idx; ++i) {
+    if(uip_ip6addr_cmp(last_requested[i], addr)) {
+      return true;
+    }
+  }
+  return false;
+}
+static void
+save_requested(uip_ip6addr_t *addr)
+{
+  if(last_requested_idx < sizeof(last_requested)) {
+    last_requested[last_requested_idx] = addr;
+    ++last_requested_idx;
+  }
+}
 /* Delivery queued IN packet to upper layers */
 static void
 delivery_in_packet(size_t i)
@@ -348,6 +374,7 @@ delivery_in_packet(size_t i)
   LOG_DBG("Delivery queued packet. Time waiting: %d\n", clock_time() - in_queue[i].time_cached);
   in_queue[i].len = 0;
   in_queue_free += 1;
+  mark_packet_from_cache = 1;
   uip_process(UIP_DATA);
 }
 /* New group key was delivered - check if can process packets from IN queue */
@@ -370,7 +397,6 @@ retry_on_queue_in()
   if(in_queue_free == SEC_MAX_QUEUE_SIZE) {
     return;
   }
-
   time_t time_diff;
   for(size_t i = 0; i < SEC_MAX_QUEUE_SIZE; ++i) {
     if(in_queue[i].len == 0) {
@@ -386,10 +412,13 @@ retry_on_queue_in()
         in_queue_free++;
       } else {
         in_queue[i].retry_count++;
-        LOG_DBG("Retry request (attempt %d) group key for ", in_queue[i].retry_count);
-        LOG_6ADDR(LOG_LEVEL_DBG, &IN_QUEUE_ADDR(i));
-        LOG_DBG("\n");
-        get_certificate_for(&IN_QUEUE_ADDR(i));
+        if(!was_requested(&IN_QUEUE_ADDR(i))) {
+          LOG_DBG("Retry request (attempt %d) group key for ", in_queue[i].retry_count);
+          LOG_6ADDR(LOG_LEVEL_DBG, &IN_QUEUE_ADDR(i));
+          LOG_DBG("\n");
+          save_requested(&IN_QUEUE_ADDR(i));
+          get_certificate_for(&IN_QUEUE_ADDR(i));
+        }
       }
     }
   }
@@ -438,10 +467,13 @@ retry_on_queue_out()
         out_queue_free++;
       } else {
         out_queue[i].retry_count++;
-        LOG_DBG("Retry request (attempt %d) group key for ", out_queue[i].retry_count);
-        LOG_6ADDR(LOG_LEVEL_DBG, &out_queue[i].conn->ripaddr);
-        LOG_DBG("\n");
-        get_certificate_for(&out_queue[i].conn->ripaddr);
+        if(!was_requested(&out_queue[i].conn->ripaddr)) {
+          save_requested(&out_queue[i].conn->ripaddr);
+          LOG_DBG("Retry request (attempt %d) group key for ", out_queue[i].retry_count);
+          LOG_6ADDR(LOG_LEVEL_DBG, &out_queue[i].conn->ripaddr);
+          LOG_DBG("\n");
+          get_certificate_for(&out_queue[i].conn->ripaddr);
+        }
       }
     }
   }
@@ -463,8 +495,10 @@ PROCESS_THREAD(secure_engine, ev, data)
 
     case PROCESS_EVENT_TIMER:
       if(data == &queue_timeout) {
+        last_requested_idx = 0;
         retry_on_queue_in();
         retry_on_queue_out();
+        last_requested_idx = 0;
         etimer_set(&queue_timeout, SEC_QUEUE_RETRY_TIME + RANDOMIZE());
       }
       break;

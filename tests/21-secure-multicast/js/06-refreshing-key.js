@@ -1,5 +1,5 @@
 // Automatically fail after given time
-TIMEOUT(400000, log.testFailed());
+TIMEOUT(500000, log.testFailed());
 
 var root = [
   "Root initialized",

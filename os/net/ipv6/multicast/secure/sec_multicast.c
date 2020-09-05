@@ -85,10 +85,10 @@ out(void)
 
   LOG_DBG("Out packet detected.\n");
 
-  if(process_outcomming_packet(&UIP_IP_BUF->destipaddr, &(uip_buf[UIP_IPUDPH_LEN]), uip_len - UIP_IPUDPH_LEN, buffer, &data_len) == 0) {
-    memcpy(&uip_buf[UIP_IPUDPH_LEN], buffer, data_len);
+  if(process_outcomming_packet(&UIP_IP_BUF->destipaddr, &uip_buf[UIP_IPUDPH_LEN] + uip_ext_len, uip_len - UIP_IPUDPH_LEN - uip_ext_len, buffer, &data_len) == 0) {
+    memcpy(&uip_buf[UIP_IPUDPH_LEN] + uip_ext_len, buffer, data_len);
     uip_slen = data_len;
-    uip_len = UIP_IPUDPH_LEN + data_len;
+    uip_len = UIP_IPUDPH_LEN + data_len + uip_ext_len;
     uipbuf_set_len_field(UIP_IP_BUF, uip_len - UIP_IPH_LEN);
     UIP_UDP_BUF->udplen = UIP_HTONS(data_len + UIP_UDPH_LEN);
     recalculate_udp_checksum();
@@ -106,17 +106,24 @@ in()
 {
   uint32_t data_len;
   uint8_t decision;
+  LOG_DBG("In packet detected.\n");
 
-  decision = SEC_MULTICAST_BASE_DRIVER.in();
+  if(mark_packet_from_cache == 1) {
+    LOG_DBG("Packet comes from cache!\n");
+    mark_packet_from_cache = 0;
+    decision = UIP_MCAST6_ACCEPT;
+  } else {
+    decision = SEC_MULTICAST_BASE_DRIVER.in();
+    LOG_DBG("Engine decision: %d\n", decision);
+  }
 
   if(decision == UIP_MCAST6_ACCEPT) {
     data_len = sizeof(buffer);
-    LOG_DBG("In packet detected.\n");
 
-    if(process_incoming_packet(&UIP_IP_BUF->destipaddr, &uip_buf[UIP_IPUDPH_LEN], uip_len - UIP_IPUDPH_LEN, buffer, &data_len) == PROCESS_UPPER) {
-      memcpy(&uip_buf[UIP_IPUDPH_LEN], buffer, data_len);
+    if(process_incoming_packet(&UIP_IP_BUF->destipaddr, &uip_buf[UIP_IPUDPH_LEN] + uip_ext_len, uip_len - UIP_IPUDPH_LEN - uip_ext_len, buffer, &data_len) == PROCESS_UPPER) {
+      memcpy(&uip_buf[UIP_IPUDPH_LEN] + uip_ext_len, buffer, data_len);
       uip_slen = data_len;
-      uip_len = UIP_IPUDPH_LEN + data_len;
+      uip_len = UIP_IPUDPH_LEN + data_len + uip_ext_len;
       uipbuf_set_len_field(UIP_IP_BUF, uip_len - UIP_IPH_LEN);
       UIP_UDP_BUF->udplen = UIP_HTONS(data_len + UIP_UDPH_LEN);
       recalculate_udp_checksum();
@@ -124,7 +131,6 @@ in()
       return UIP_MCAST6_DROP;
     }
   }
-
   return decision;
 }
 /*---------------------------------------------------------------------------*/

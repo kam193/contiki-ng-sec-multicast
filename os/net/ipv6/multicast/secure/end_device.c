@@ -56,7 +56,7 @@
 #define LOG_MODULE  "sec_multicast"
 #define LOG_LEVEL   LOG_LEVEL_SEC_MULTICAST
 
-#define RETRY_PAUSE 1000
+#define RETRY_PAUSE 3000
 #define MAX_RETRY   100
 
 static device_cert_t *rp_pub_cert = NULL;
@@ -188,7 +188,6 @@ send_request_group_key(const uip_ip6addr_t *mcast_addr)
   uint32_t timestamp = clock_seconds();
   memcpy(tmp, &timestamp, TIMESTAMP_SIZE);
   memcpy((tmp + TIMESTAMP_SIZE), mcast_addr, sizeof(uip_ip6addr_t));
-  /*   memset(tmp + KEY_REQUEST_DATA_SIZE, RANDOM_CHAR(), padded_size - KEY_REQUEST_DATA_SIZE); */
   for(size_t shift = KEY_REQUEST_DATA_SIZE; shift < padded_size; ++shift) {
     *(tmp + shift) = RANDOM_CHAR();
   }
@@ -205,10 +204,10 @@ send_request_group_key(const uip_ip6addr_t *mcast_addr)
   auth_encode_cert(buffer + size, &cert_len, auth_own_pub_cert());
   buffer[1] = (uint8_t)cert_len;
 
-  send_to_coordinator(buffer, size + cert_len);
   LOG_INFO("Send descriptor request for group ");
   LOG_6ADDR(LOG_LEVEL_INFO, mcast_addr);
   LOG_INFO("\n");
+  send_to_coordinator(buffer, size + cert_len);
   return 0;
 }
 /*---------------------------------------------------------------------------*/

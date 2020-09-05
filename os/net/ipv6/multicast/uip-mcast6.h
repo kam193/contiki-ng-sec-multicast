@@ -172,7 +172,6 @@ struct uip_mcast6_driver {
 #define UIP_MCAST6             mpl_driver
 
 #elif UIP_MCAST6_ENGINE == UIP_MCAST6_ENGINE_SEC
-#define RPL_WITH_MULTICAST     1
 #define UIP_MCAST6             sec_multicast_driver
 
 #else

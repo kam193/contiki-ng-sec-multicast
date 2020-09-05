@@ -1,5 +1,8 @@
 // Automatically fail after given time
-TIMEOUT(400000, log.testFailed());
+TIMEOUT(500000, log.testFailed());
+
+// With MPL engine in underlay, this test can fail until the
+// intermediate device is not configured to use the proper MPL domain
 
 var root = [
   "Root initialized",

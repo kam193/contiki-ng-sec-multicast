@@ -66,7 +66,7 @@
 #endif
 
 #ifndef SEC_QUEUE_RETRY_TIME
-#define SEC_QUEUE_RETRY_TIME 500
+#define SEC_QUEUE_RETRY_TIME 3000
 #endif
 
 #ifndef SEC_QUEUE_MAX_RETRY
@@ -96,6 +96,8 @@ int process_outcomming_packet(uip_ip6addr_t *dest_addr, uint8_t *message, uint16
 int decode_bytes_to_security_descriptor(group_security_descriptor_t *cert, const uint8_t *data, uint16_t size);
 int import_group_security_descriptor(group_security_descriptor_t *certificate);
 /** @} */
+
+extern int mark_packet_from_cache;
 
 /* TODO: general init engine */
 

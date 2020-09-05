@@ -45,7 +45,7 @@
 
 static struct uip_udp_conn *mcast_net_1;
 
-#define START_DELAY 30
+#define START_DELAY 60
 
 /*---------------------------------------------------------------------------*/
 PROCESS(sender, "Multicast Sender Network A");

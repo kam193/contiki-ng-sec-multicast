@@ -107,6 +107,7 @@ aes_cbc_decrypt(group_security_descriptor_t *cert, const uint8_t *message,
                 uint16_t message_len, uint8_t *out_buffer, uint32_t *out_len)
 {
   uint32_t max_length = *out_len - sizeof(uint16_t);
+  max_length = MIN(max_length, message_len);
   aes_cbc_descriptor_t *current_descriptor = cert->key_descriptor;
   uint8_t vi[16];
 
@@ -124,7 +125,6 @@ aes_cbc_decrypt(group_security_descriptor_t *cert, const uint8_t *message,
   if((return_code = wc_AesCbcDecrypt(&encryption_engine, out_buffer, message, message_len - sizeof(vi))) != 0) {
     return return_code;
   }
-
   /* Get len of original message and remove it from the packet */
   uint16_t original_length = *(uint16_t *)(out_buffer);
   memmove(out_buffer, out_buffer + sizeof(uint16_t), MIN(original_length, max_length));

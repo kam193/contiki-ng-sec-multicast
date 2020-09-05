@@ -54,7 +54,7 @@ PROCESS_THREAD(root_process, ev, data)
   FAIL_NOT_0(auth_import_ca_cert(&ca));
   FAIL_NOT_0(auth_import_own_cert(&rp_private_cert));
 
-  FAIL_NOT_0(register_group_security(&NETWORK_A, SEC_MODE_AES_CBC, 5));
+  FAIL_NOT_0(register_group_security(&NETWORK_A, SEC_MODE_AES_CBC, 10));
 
   NETSTACK_ROUTING.root_start();
 
