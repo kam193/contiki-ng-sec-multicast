@@ -55,6 +55,23 @@
 /** @} */
 
 /**
+ * \name Function to call as default action configuration
+ *
+ * A function will be called with a mcast addres when coordinator
+ * doesn't have a group
+ * descriptor for requested group. The function should (if needed)
+ * create and register group security and return pointer to the 
+ * struct group_security_descriptor_t or NULL.
+ * @{
+ */
+#ifndef SEC_DEFAULT_ACTION
+#define SEC_DEFAULT_ACTION sec_default_drop
+#endif
+/** @} */
+
+group_security_descriptor_t * SEC_DEFAULT_ACTION(const uip_ip6addr_t *addr);
+
+/**
  * \name Server part group security management.
  * @{
  */

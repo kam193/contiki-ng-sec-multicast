@@ -84,6 +84,12 @@ recreate_group_key(secured_group_t *group_descriptor)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
+group_security_descriptor_t *
+sec_default_drop(const uip_ip6addr_t *addr)
+{
+  return NULL;
+}
+/*---------------------------------------------------------------------------*/
 secured_group_t *
 find_group_descriptor(const uip_ip6addr_t *addr)
 {
@@ -104,8 +110,11 @@ get_group_security_descriptor(const uip_ipaddr_t *group_addr, group_security_des
 {
   secured_group_t *descriptor;
   if((descriptor = find_group_descriptor(group_addr)) == NULL) {
-    /* TODO: default behaviour */
-    *cert_ptr = NULL;
+    *cert_ptr = SEC_DEFAULT_ACTION(group_addr);
+    if(*cert_ptr != NULL) {
+      LOG_DBG("Default action created a descriptor.\n");
+      return 0;
+    }
     return ERR_OTHER;
   }
 

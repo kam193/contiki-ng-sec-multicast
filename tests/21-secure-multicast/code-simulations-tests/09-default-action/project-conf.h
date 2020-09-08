@@ -33,5 +33,6 @@
 #define PROJECT_CONF_H_
 
 #include "../base-conf.h"
+#define SEC_DEFAULT_ACTION default_none_mode
 
 #endif /* PROJECT_CONF_H_ */

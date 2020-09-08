@@ -98,6 +98,14 @@ encrypt_decrypt(group_security_descriptor_t *cert, const uint8_t *message, uint1
   return 0;
 }
 /*---------------------------------------------------------------------------*/
+group_security_descriptor_t * default_none_mode(const uip_ip6addr_t *addr){
+  group_security_descriptor_t *descriptor = malloc(sizeof(group_security_descriptor_t));
+  memcpy(&descriptor->group_addr, addr, sizeof(uip_ip6addr_t));
+  descriptor->mode = SEC_MODE_NONE;
+  init(descriptor);
+  return descriptor;
+}
+/*---------------------------------------------------------------------------*/
 /**
  * \name No security mode
  * @{

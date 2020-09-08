@@ -53,6 +53,14 @@
 
 /** A driver to support no security mode */
 extern const secure_mode_driver_t none_driver;
+
+/**
+ * \brief Use none mode as default action
+ * 
+ * \param addr 
+ * \return group_security_descriptor_t* 
+ */
+group_security_descriptor_t * default_none_mode(const uip_ip6addr_t *addr);
 /** @} */
 
 #endif
