@@ -29,18 +29,9 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SIM_CONF_H_
-#define SIM_CONF_H_
+#ifndef PROJECT_CONF_H_
+#define PROJECT_CONF_H_
 
-#include "clock.h"
+#include "../base-conf.h"
 
-#define REFRESH_KEY 180
-#define MESSAGES 1000
-#define PAUSE 10
-#define START_DELAY 180
-
-char guard[] = "mytest";
-
-#define EXPECTED_LENGTH sizeof(guard) + sizeof(clock_time_t)
-
-#endif
+#endif /* PROJECT_CONF_H_ */

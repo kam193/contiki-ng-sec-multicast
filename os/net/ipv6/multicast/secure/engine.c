@@ -69,7 +69,6 @@ typedef struct sec_info sec_info_t;
 sec_info_t group_descriptors[SEC_MAX_GROUP_DESCRIPTORS];
 uint32_t first_free = 0;
 
-/* TODO: extract, maybe made shared buffer? */
 uint8_t buffer[UIP_BUFSIZE];
 
 extern uint16_t uip_slen;

@@ -127,9 +127,6 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
     LOG_ERR("Requested descriptor not found\n");
     return;
   }
-  LOG_DBG("Sending descriptor answer to ");
-  LOG_6ADDR(LOG_LEVEL_DBG, sender_addr);
-  LOG_DBG("\n");
 
   out_size = sizeof(second_buffer);
   memset(second_buffer, 0, out_size);
@@ -147,6 +144,10 @@ ce_request_handler(const uip_ipaddr_t *sender_addr,
 
   buffer[0] = GROUP_DESCRIPTOR_ANSWER;
   response_len += 1;
+
+  LOG_INFO("Sending descriptor answer to ");
+  LOG_6ADDR(LOG_LEVEL_INFO, sender_addr);
+  LOG_INFO("\n");
   simple_udp_sendto(&cert_exch, buffer, response_len, sender_addr);
   auth_free_device_cert(&client_cert);
 }

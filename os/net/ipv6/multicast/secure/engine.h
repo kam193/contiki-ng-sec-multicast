@@ -66,7 +66,7 @@
 #endif
 
 #ifndef SEC_QUEUE_RETRY_TIME
-#define SEC_QUEUE_RETRY_TIME 3000
+#define SEC_QUEUE_RETRY_TIME 2000
 #endif
 
 #ifndef SEC_QUEUE_MAX_RETRY

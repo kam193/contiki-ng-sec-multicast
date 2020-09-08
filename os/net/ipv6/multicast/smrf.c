@@ -58,7 +58,7 @@
 #endif /* ROUTING_CONF_RPL_CLASSIC */
 #include <string.h>
 
-#define DEBUG DEBUG_PRINT
+#define DEBUG DEBUG_NONE
 #include "net/ipv6/uip-debug.h"
 
 /*---------------------------------------------------------------------------*/

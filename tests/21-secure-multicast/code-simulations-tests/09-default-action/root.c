@@ -27,20 +27,45 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ * 
+ * This file based on the examples/multicast/root.c
  */
 
-#ifndef SIM_CONF_H_
-#define SIM_CONF_H_
+#include "contiki.h"
+#include "contiki-net.h"
+#include "net/ipv6/multicast/uip-mcast6.h"
+#include "net/ipv6/multicast/secure/authorization.h"
+#include "net/ipv6/multicast/secure/remote_engine.h"
+#include "net/ipv6/multicast/secure/server.h"
+#include "net/routing/routing.h"
 
-#include "clock.h"
+#include "../certs.h"
+#include "../utils.h"
 
-#define REFRESH_KEY 180
-#define MESSAGES 1000
-#define PAUSE 10
-#define START_DELAY 180
+#define DEBUG DEBUG_PRINT
+#include "net/ipv6/uip-debug.h"
 
-char guard[] = "mytest";
+/*---------------------------------------------------------------------------*/
+PROCESS(root_process, "ROOT");
+AUTOSTART_PROCESSES(&root_process);
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(root_process, ev, data)
+{
+  PROCESS_BEGIN();
 
-#define EXPECTED_LENGTH sizeof(guard) + sizeof(clock_time_t)
+  FAIL_NOT_0(auth_import_ca_cert(&ca));
+  FAIL_NOT_0(auth_import_own_cert(&rp_private_cert));
 
-#endif
+  NETSTACK_ROUTING.root_start();
+
+  FAIL_NOT_0(start_group_descriptors_server());
+
+  SIMPRINTF("Root initialized\n");
+
+  while(1) {
+    PROCESS_YIELD();
+  }
+
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/

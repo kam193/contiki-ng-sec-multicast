@@ -872,7 +872,7 @@ ext_hdr_options_process(uint8_t *ext_buf)
       }
       opt_offset += opt_len;
       break;
-#if UIP_MCAST6_ENGINE == UIP_MCAST6_ENGINE_MPL
+// #if UIP_MCAST6_ENGINE == UIP_MCAST6_ENGINE_MPL
     case UIP_EXT_HDR_OPT_MPL:
       /* MPL (RFC7731) Introduces the 0x6D hop by hop option. Hosts that do not
       *  recognise the option should drop the packet. Since we want to keep the packet,
@@ -881,7 +881,7 @@ ext_hdr_options_process(uint8_t *ext_buf)
       LOG_DBG("Processing MPL option\n");
       opt_offset += opt_len + opt_len;
       break;
-#endif
+// #endif
     default:
       /*
        * check the two highest order bits of the option
