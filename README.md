@@ -1,13 +1,28 @@
-<img src="https://github.com/contiki-ng/contiki-ng.github.io/blob/master/images/logo/Contiki_logo_2RGB.png" alt="Logo" width="256">
+# Secure multicast in 6LoWPAN protocol on Contiki-NG
 
-# Contiki-NG: The OS for Next Generation IoT Devices
+This repository contains a proposition of centralized system that can secure
+multicast communication on 6LoWPAN-based networks. Implementation bases on
+Contiki-NG system.
 
-[![Build Status](https://travis-ci.org/contiki-ng/contiki-ng.svg?branch=master)](https://travis-ci.org/contiki-ng/contiki-ng/branches)
-[![Documentation Status](https://readthedocs.org/projects/contiki-ng/badge/?version=master)](https://contiki-ng.readthedocs.io/en/master/?badge=master)
-[![license](https://img.shields.io/badge/license-3--clause%20bsd-brightgreen.svg)](https://github.com/contiki-ng/contiki-ng/blob/master/LICENSE.md)
-[![Latest release](https://img.shields.io/github/release/contiki-ng/contiki-ng.svg)](https://github.com/contiki-ng/contiki-ng/releases/latest)
-[![GitHub Release Date](https://img.shields.io/github/release-date/contiki-ng/contiki-ng.svg)](https://github.com/contiki-ng/contiki-ng/releases/latest)
-[![Last commit](https://img.shields.io/github/last-commit/contiki-ng/contiki-ng.svg)](https://github.com/contiki-ng/contiki-ng/commit/HEAD)
+To see how it works, look into `tests/21-secure-multicast` and check examples.
+The documentation is available as part of doxygen docs (see 
+`os/net/ipv6/multicast/secure`).
+
+The system act as additional layer (implemented as a "multicast engine") and 
+after initialization is fully transparent to the application use standard
+Contiki UDP interface. In underlay can be used use any multicast delivery
+protocol (SMRF by default).
+
+Devices are authenticated using ECC-based certificates. Coordinator manages
+group keys (using AES-CBC is implemented, but it's easy to provide support
+for others) and share it with authenticated devices when requested.
+
+**Warning:** This is a limited try to secure communication. It's not ready to
+usage and probably shouldn't be used in real environment.
+
+Original Contiki-NG README description:
+
+## Contiki-NG: The OS for Next Generation IoT Devices
 
 Contiki-NG is an open-source, cross-platform operating system for Next-Generation IoT devices. It focuses on dependable (secure and reliable) low-power communication and standard protocols, such as IPv6/6LoWPAN, 6TiSCH, RPL, and CoAP. Contiki-NG comes with extensive documentation, tutorials, a roadmap, release cycle, and well-defined development flow for smooth integration of community contributions.
 
